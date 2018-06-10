@@ -8,4 +8,6 @@ name = "shell"
 path = "src/shell.rs"
 
 [dependencies]
-nom = "*"
+
+[features]
+no_std = []

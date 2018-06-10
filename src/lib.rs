@@ -2,21 +2,23 @@
 //!
 //! The lexer is based on monkey-rust.
 
-#![no_std]
+#![cfg_attr(feature="no_std", no_std)]
+
+#![cfg(not(feature="no_std"))]
 #![feature(alloc)]
 
-#[macro_use]
 extern crate alloc;
-
-// #[macro_use]
-// extern crate nom;
 
 pub mod lexer;
 
-use alloc::{String, Vec};
+#[cfg(not(feature="no_std"))]
+use alloc::String;
+
+#[cfg(not(feature="no_std"))]
+use std as core;
 
 pub struct Parser {
-    state: State,
+    _state: State,
 }
 
 #[derive(Debug)]
@@ -40,7 +42,7 @@ enum State {
 impl Parser {
     pub fn new() -> Parser {
         Parser {
-            state: State::Init,
+            _state: State::Init,
         }
     }
 
