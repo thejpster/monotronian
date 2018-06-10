@@ -20,6 +20,8 @@ impl Lexer {
             Ok((Token::StringLiteral(string), res))
         } else if let Some(res) = Self::matches(input, "if") {
             Ok((Token::If, res))
+        } else if let Some(res) = Self::matches(input, "==") {
+            Ok((Token::Equal, res))
         } else if let Some(res) = Self::matches(input, "=") {
             Ok((Token::Assign, res))
         } else if let Some(res) = Self::matches(input, "else") {
@@ -32,8 +34,6 @@ impl Lexer {
             Ok((Token::Divide, res))
         } else if let Some(res) = Self::matches(input, "*") {
             Ok((Token::Multiply, res))
-        } else if let Some(res) = Self::matches(input, "==") {
-            Ok((Token::Equal, res))
         } else if let Some(res) = Self::matches(input, "!=") {
             Ok((Token::NotEqual, res))
         } else if let Some(res) = Self::matches(input, ">=") {
@@ -84,8 +84,28 @@ impl Lexer {
         }
     }
 
-    fn read_string<'a>(_input: &'a str) -> Result<Option<(&'a str, &'a str)>, Error> {
-        Ok(None)
+    fn read_string<'a>(input: &'a str) -> Result<Option<(&'a str, &'a str)>, Error> {
+        if let Some(res) = Self::matches(input, "\"") {
+            let mut escaped = false;
+            for (idx, ch) in res.bytes().enumerate() {
+                if ch == b'\\' {
+                    escaped = true;
+                } else if ch == b'"' && !escaped {
+                    return Ok(
+                            Some((
+                                unsafe { res.slice_unchecked(0, idx) },
+                                unsafe { res.slice_unchecked(idx + 1, res.len()) }
+                            ))
+                        );
+                } else {
+                    escaped = false;
+                }
+            }
+            // Oh dear - an unterminated string.
+            Err(Error::SyntaxError)
+        } else {
+            Ok(None)
+        }
     }
 
     fn read_number<'a>(input: &'a str) -> Result<Option<(i64, &'a str)>, Error> {
@@ -171,6 +191,15 @@ mod test {
         assert_eq!(Lexer::lex_tokens(" if"), Ok((Token::If, "")));
         assert_eq!(Lexer::lex_tokens("let"), Ok((Token::Let, "")));
         assert_eq!(Lexer::lex_tokens("return"), Ok((Token::Return, "")));
+    }
+
+    #[test]
+    fn strings() {
+        assert_eq!(Lexer::lex_tokens("\"test\""), Ok((Token::StringLiteral("test"), "")));
+        assert_eq!(Lexer::lex_tokens(" \"test\""), Ok((Token::StringLiteral("test"), "")));
+        assert_eq!(Lexer::lex_tokens("\"test\" "), Ok((Token::StringLiteral("test"), " ")));
+        // The lexer doesn't re-write strings to remove the escapes.
+        assert_eq!(Lexer::lex_tokens("\"te\\\"st \" "), Ok((Token::StringLiteral("te\\\"st "), " ")));
     }
 
 }
