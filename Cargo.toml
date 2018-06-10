@@ -1,0 +1,11 @@
+[package]
+name = "monotronian"
+version = "0.1.0"
+authors = ["Jonathan 'theJPster' Pallant <github@thejpster.org.uk>"]
+
+[[bin]]
+name = "shell"
+path = "src/shell.rs"
+
+[dependencies]
+nom = "*"
