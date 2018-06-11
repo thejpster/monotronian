@@ -1,6 +1,13 @@
 //! # Lexer/Interpreter for Monotronian
 //!
-//! The lexer is based on monkey-rust.
+//! The lexer is loosely based on monkey-rust.
+//! The syntax is loosely based on monkey (and it's a bit C like).
+//!
+//! Grammar:
+//!
+//! function := fn `name`(arguments) { expression }
+//! arguments := nil | identifier arguments
+//! expression := if | while | for | 
 
 #![cfg_attr(feature="no_std", no_std)]
 
@@ -22,9 +29,9 @@ pub struct Parser {
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<'a> {
     Unknown,
-    Lexer(lexer::Error),
+    Lexer(lexer::Error, &'a str),
     Incomplete
 }
 
@@ -46,12 +53,14 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, buffer: &str, debug: &mut core::fmt::Write) -> Result<Value, Error> {
+    pub fn parse<'a>(&mut self, buffer: &'a str, debug: &mut core::fmt::Write) -> Result<Value, Error<'a>> {
         let mut buffer = buffer;
         loop {
-            // Step 1. lex(buffer) -> Vec<Tokens>
+            // Step 1. lex(buffer) -> tokens
+            // Need to feed the tokens into some sort of token buffer
+            // so we can create an AST. We then store the AST and execute it later.
             match lexer::Lexer::lex_tokens(&buffer) {
-                Ok((lexer::Token::EOF, _remainder)) => {
+                Ok((lexer::Token::EOF, _)) => {
                     break;
                 }
                 Ok((token, remainder)) => {
@@ -59,7 +68,7 @@ impl Parser {
                     writeln!(debug, "Got {:?}", token).unwrap();
                 }
                 Err(e) => {
-                    return Err(Error::Lexer(e));
+                    return Err(Error::Lexer(e, buffer));
                 }
             }
         }

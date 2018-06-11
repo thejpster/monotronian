@@ -1,17 +1,25 @@
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token<'a> {
-    Illegal,
     EOF,
-    // identifier and literals
-    Ident(&'a str),
+    Identifier(&'a str),
     StringLiteral(&'a str),
-    IntLiteral(i64),
+    DecimalIntLiteral(i64),
+    HexIntLiteral(i64),
     BoolLiteral(bool),
-    // statements
+    LeftRoundBracket,
+    RightRoundBracket,
+    LeftCurlyBracket,
+    RightCurlyBracket,
+    LeftSquareBracket,
+    RightSquareBracket,
     Assign,
     If,
     Else,
-    // operators
+    Let,
+    For,
+    While,
+    Break,
+    Return,
     Plus,
     Minus,
     Divide,
@@ -23,17 +31,7 @@ pub enum Token<'a> {
     GreaterThan,
     LessThan,
     Not,
-    // reserved words
-    Let,
-    Return,
-    // punctuations
     Comma,
     Colon,
     SemiColon,
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    LBracket,
-    RBracket,
 }
