@@ -135,21 +135,23 @@ impl Lexer {
     fn read_string<'a>(input: &'a str) -> Result<Option<(&'a str, &'a str)>, Error> {
         if let Some(res) = Self::matches(input, "\"", Following::CharsAllowed) {
             let mut escaped = false;
-            for (idx, ch) in res.bytes().enumerate() {
-                if ch == b'\\' {
+            let mut byte_count = 0;
+            for ch in res.chars() {
+                if ch == '\\' {
                     escaped = true;
-                } else if ch == b'"' && !escaped {
+                } else if ch == '"' && !escaped {
                     return Ok(
                             // It's OK, these are guaranteed to be on UTF-8
                             // character boundaries
                             Some((
-                                unsafe { res.slice_unchecked(0, idx) },
-                                unsafe { res.slice_unchecked(idx + 1, res.len()) }
+                                unsafe { res.slice_unchecked(0, byte_count) },
+                                unsafe { res.slice_unchecked(byte_count + 1, res.len()) }
                             ))
                         );
                 } else {
                     escaped = false;
                 }
+                byte_count = byte_count + ch.len_utf8();
             }
             // Oh dear - an unterminated string.
             Err(Error::SyntaxError)
@@ -202,7 +204,8 @@ impl Lexer {
             return Ok(None);
         }
 
-        while let Some(ch) = input.chars().next() {
+        let mut byte_count = 0;
+        for ch in input.chars() {
             match ch {
                 '0' => { result *= 10; result += 0; }
                 '1' => { result *= 10; result += 1; }
@@ -214,6 +217,7 @@ impl Lexer {
                 '7' => { result *= 10; result += 7; }
                 '8' => { result *= 10; result += 8; }
                 '9' => { result *= 10; result += 9; }
+                '_' if valid => {}, // ignore underscores except at the start
                 'a' ... 'z' if valid => {
                     // Numbers should not have letters in them
                     return Err(Error::SyntaxError)
@@ -226,13 +230,13 @@ impl Lexer {
                 _ => break,
             }
             valid = true;
-            input = &input[ch.len_utf8()..];
+            byte_count += ch.len_utf8();
         }
         if valid {
             if negative {
                 result = -result;
             }
-            Ok(Some((result, input)))
+            Ok(Some((result, &input[byte_count..])))
         } else {
             Ok(None)
         }
@@ -249,7 +253,8 @@ impl Lexer {
             return Ok(None);
         }
 
-        while let Some(ch) = input.chars().next() {
+        let mut byte_count = 0;
+        for ch in input.chars() {
             match ch {
                 '0' => { result *= 16; result += 0; }
                 '1' => { result *= 16; result += 1; }
@@ -261,6 +266,7 @@ impl Lexer {
                 '7' => { result *= 16; result += 7; }
                 '8' => { result *= 16; result += 8; }
                 '9' => { result *= 16; result += 9; }
+                '_' if valid => {}, // ignore underscores
                 'A' | 'a' => { result *= 16; result += 10; }
                 'B' | 'b' => { result *= 16; result += 11; }
                 'C' | 'c' => { result *= 16; result += 12; }
@@ -279,10 +285,10 @@ impl Lexer {
                 _ => break,
             }
             valid = true;
-            input = &input[ch.len_utf8()..];
+            byte_count += ch.len_utf8();
         }
         if valid {
-            Ok(Some((result, input)))
+            Ok(Some((result, &input[byte_count..])))
         } else {
             Ok(None)
         }
@@ -300,6 +306,7 @@ mod test {
         assert_eq!(Lexer::lex_tokens("123 "), Ok((Token::DecimalIntLiteral(123), " ")));
         assert_eq!(Lexer::lex_tokens(" 123 "), Ok((Token::DecimalIntLiteral(123), " ")));
         assert_eq!(Lexer::lex_tokens("0x100"), Ok((Token::HexIntLiteral(256), "")));
+        assert_eq!(Lexer::lex_tokens("0x8000_0000"), Ok((Token::HexIntLiteral(1 << 31), "")));
         assert_eq!(Lexer::lex_tokens("-567"), Ok((Token::DecimalIntLiteral(-567), "")));
     }
 
@@ -309,6 +316,9 @@ mod test {
         assert_eq!(Lexer::lex_tokens("if€"), Ok((Token::If, "€")));
         assert_eq!(Lexer::lex_tokens("let"), Ok((Token::Let, "")));
         assert_eq!(Lexer::lex_tokens("return"), Ok((Token::Return, "")));
+        assert_eq!(Lexer::lex_tokens("while"), Ok((Token::While, "")));
+        assert_eq!(Lexer::lex_tokens("for"), Ok((Token::For, "")));
+        assert_eq!(Lexer::lex_tokens("break"), Ok((Token::Break, "")));
     }
 
     #[test]
