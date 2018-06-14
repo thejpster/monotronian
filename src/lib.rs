@@ -7,11 +7,10 @@
 //!
 //! function := fn `name`(arguments) { expression }
 //! arguments := nil | identifier arguments
-//! expression := if | while | for | 
+//! expression := if | while | for |
 
-#![cfg_attr(feature="no_std", no_std)]
-
-#![cfg(not(feature="no_std"))]
+#![cfg_attr(feature = "no_std", no_std)]
+#![cfg(not(feature = "no_std"))]
 #![feature(alloc)]
 
 extern crate alloc;
@@ -19,10 +18,10 @@ extern crate alloc;
 pub mod lexer;
 pub mod parser;
 
-#[cfg(not(feature="no_std"))]
+#[cfg(not(feature = "no_std"))]
 use alloc::String;
 
-#[cfg(not(feature="no_std"))]
+#[cfg(not(feature = "no_std"))]
 use std as core;
 
 pub struct Parser {
@@ -33,7 +32,7 @@ pub struct Parser {
 pub enum Error<'a> {
     Unknown,
     Lexer(lexer::Error, &'a str),
-    Incomplete
+    Incomplete,
 }
 
 #[derive(Debug)]
@@ -44,7 +43,7 @@ pub enum Value {
 }
 
 enum State {
-    Init
+    Init,
 }
 
 impl Parser {
@@ -54,7 +53,11 @@ impl Parser {
         }
     }
 
-    pub fn parse<'a>(&mut self, buffer: &'a str, debug: &mut core::fmt::Write) -> Result<Value, Error<'a>> {
+    pub fn parse<'a>(
+        &mut self,
+        buffer: &'a str,
+        debug: &mut core::fmt::Write,
+    ) -> Result<Value, Error<'a>> {
         let mut buffer = buffer;
         loop {
             // Step 1. lex(buffer) -> tokens

@@ -7,8 +7,8 @@
 //!
 //! The conversion back to text currently does not support indentation.
 
-use lexer::Token;
 use core::fmt;
+use lexer::Token;
 
 /// A linear series of statements
 #[derive(PartialEq, Debug, Clone)]
@@ -34,7 +34,13 @@ pub enum Expression {
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
     /// Loop variable, start value, end value, step
-    For(Identifier, Box<Expression>, Box<Expression>, Option<Box<Expression>>, Box<Block>),
+    For(
+        Identifier,
+        Box<Expression>,
+        Box<Expression>,
+        Option<Box<Expression>>,
+        Box<Block>,
+    ),
     /// The expression is checked for truthiness
     IfExpr(Box<Expression>, Block, Option<Block>),
     /// First expression must be a string. Second is the arguments.
@@ -62,7 +68,7 @@ pub enum Infix {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Prefix {
     Negate,
-    Bitflip
+    Bitflip,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -124,18 +130,10 @@ impl fmt::Display for Identifier {
 impl fmt::Display for Literal {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Literal::String(x) => {
-                write!(fmt, "\"{}\"", x)
-            },
-            Literal::DecimalInt(x) => {
-                write!(fmt, "{}", x)
-            },
-            Literal::HexInt(x) => {
-                write!(fmt, "0x{:x}", x)
-            },
-            Literal::Bool(x) => {
-                write!(fmt, "{}", x)
-            },
+            Literal::String(x) => write!(fmt, "\"{}\"", x),
+            Literal::DecimalInt(x) => write!(fmt, "{}", x),
+            Literal::HexInt(x) => write!(fmt, "0x{:x}", x),
+            Literal::Bool(x) => write!(fmt, "{}", x),
         }
     }
 }
@@ -169,15 +167,9 @@ impl fmt::Display for Infix {
 impl fmt::Display for Expression {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Identifier(id) => {
-                write!(fmt, "{}", id)
-            }
-            Expression::Literal(lit) => {
-                write!(fmt, "{}", lit)
-            }
-            Expression::Prefix(prefix, expr) => {
-                write!(fmt, "{}{}", prefix, expr)
-            }
+            Expression::Identifier(id) => write!(fmt, "{}", id),
+            Expression::Literal(lit) => write!(fmt, "{}", lit),
+            Expression::Prefix(prefix, expr) => write!(fmt, "{}{}", prefix, expr),
             Expression::Infix(infix, expr_l, expr_r) => {
                 write!(fmt, "{} {} {}", expr_l, infix, expr_r)
             }
@@ -229,9 +221,7 @@ impl fmt::Display for Expression {
                 }
                 writeln!(fmt, "}}")
             }
-            Expression::Index(array, index) => {
-                write!(fmt, "{}[{}]", array, index)
-            }
+            Expression::Index(array, index) => write!(fmt, "{}[{}]", array, index),
         }
     }
 }

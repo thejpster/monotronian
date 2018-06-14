@@ -19,11 +19,11 @@ pub enum Error {
 
 enum Following {
     CharsAllowed,
-    NoCharsAllowed
+    NoCharsAllowed,
 }
 
 pub struct TokenIterator<'a> {
-    input: &'a str
+    input: &'a str,
 }
 
 impl<'a> Iterator for TokenIterator<'a> {
@@ -40,9 +40,7 @@ impl<'a> Iterator for TokenIterator<'a> {
                     self.input = remainder;
                     Some(Ok(tok))
                 }
-                Err(e) => {
-                    Some(Err(e))
-                }
+                Err(e) => Some(Err(e)),
             }
         }
     }
@@ -135,12 +133,10 @@ impl Lexer {
     fn starts_with_alphanumeric(following: Option<&str>) -> bool {
         match following {
             None => false,
-            Some(s) => {
-                match s.chars().next() {
-                    None => false,
-                    Some(c) => c.is_alphabetic()
-                }
-            }
+            Some(s) => match s.chars().next() {
+                None => false,
+                Some(c) => c.is_alphabetic(),
+            },
         }
     }
 
@@ -150,16 +146,14 @@ impl Lexer {
             None
         } else if input.get(0..word_len) == Some(word) {
             match following {
-                Following::NoCharsAllowed  => {
+                Following::NoCharsAllowed => {
                     if Self::starts_with_alphanumeric(input.get(word_len..)) {
                         None
                     } else {
                         Some(&input[word_len..])
                     }
                 }
-                Following::CharsAllowed => {
-                    Some(&input[word_len..])
-                }
+                Following::CharsAllowed => Some(&input[word_len..]),
             }
         } else {
             None
@@ -175,13 +169,12 @@ impl Lexer {
                     escaped = true;
                 } else if ch == '"' && !escaped {
                     return Ok(
-                            // It's OK, these are guaranteed to be on UTF-8
-                            // character boundaries
-                            Some((
-                                unsafe { res.slice_unchecked(0, byte_count) },
-                                unsafe { res.slice_unchecked(byte_count + 1, res.len()) }
-                            ))
-                        );
+                        // It's OK, these are guaranteed to be on UTF-8
+                        // character boundaries
+                        Some((unsafe { res.slice_unchecked(0, byte_count) }, unsafe {
+                            res.slice_unchecked(byte_count + 1, res.len())
+                        })),
+                    );
                 } else {
                     escaped = false;
                 }
@@ -199,17 +192,17 @@ impl Lexer {
         for ch in input.chars() {
             if byte_count == 0 {
                 match ch {
-                    'a'...'z' => {},
-                    'A'...'Z' => {},
-                    '_' => {},
+                    'a'...'z' => {}
+                    'A'...'Z' => {}
+                    '_' => {}
                     _ => break,
                 }
             } else {
                 match ch {
-                    'a'...'z' => {},
-                    'A'...'Z' => {},
-                    '0'...'9' => {},
-                    '_' => {},
+                    'a'...'z' => {}
+                    'A'...'Z' => {}
+                    '0'...'9' => {}
+                    '_' => {}
                     _ => break,
                 }
             }
@@ -241,25 +234,55 @@ impl Lexer {
         let mut byte_count = 0;
         for ch in input.chars() {
             match ch {
-                '0' => { result *= 10; result += 0; }
-                '1' => { result *= 10; result += 1; }
-                '2' => { result *= 10; result += 2; }
-                '3' => { result *= 10; result += 3; }
-                '4' => { result *= 10; result += 4; }
-                '5' => { result *= 10; result += 5; }
-                '6' => { result *= 10; result += 6; }
-                '7' => { result *= 10; result += 7; }
-                '8' => { result *= 10; result += 8; }
-                '9' => { result *= 10; result += 9; }
-                '_' if valid => {}, // ignore underscores except at the start
-                'a' ... 'z' if valid => {
+                '0' => {
+                    result *= 10;
+                    result += 0;
+                }
+                '1' => {
+                    result *= 10;
+                    result += 1;
+                }
+                '2' => {
+                    result *= 10;
+                    result += 2;
+                }
+                '3' => {
+                    result *= 10;
+                    result += 3;
+                }
+                '4' => {
+                    result *= 10;
+                    result += 4;
+                }
+                '5' => {
+                    result *= 10;
+                    result += 5;
+                }
+                '6' => {
+                    result *= 10;
+                    result += 6;
+                }
+                '7' => {
+                    result *= 10;
+                    result += 7;
+                }
+                '8' => {
+                    result *= 10;
+                    result += 8;
+                }
+                '9' => {
+                    result *= 10;
+                    result += 9;
+                }
+                '_' if valid => {} // ignore underscores except at the start
+                'a'...'z' if valid => {
                     // Numbers should not have letters in them
-                    return Err(Error::SyntaxError)
-                },
-                'A' ... 'Z' if valid => {
+                    return Err(Error::SyntaxError);
+                }
+                'A'...'Z' if valid => {
                     // Numbers should not have letters in them
-                    return Err(Error::SyntaxError)
-                },
+                    return Err(Error::SyntaxError);
+                }
                 // Anything else means end of number
                 _ => break,
             }
@@ -290,31 +313,79 @@ impl Lexer {
         let mut byte_count = 0;
         for ch in input.chars() {
             match ch {
-                '0' => { result *= 16; result += 0; }
-                '1' => { result *= 16; result += 1; }
-                '2' => { result *= 16; result += 2; }
-                '3' => { result *= 16; result += 3; }
-                '4' => { result *= 16; result += 4; }
-                '5' => { result *= 16; result += 5; }
-                '6' => { result *= 16; result += 6; }
-                '7' => { result *= 16; result += 7; }
-                '8' => { result *= 16; result += 8; }
-                '9' => { result *= 16; result += 9; }
-                '_' if valid => {}, // ignore underscores
-                'A' | 'a' => { result *= 16; result += 10; }
-                'B' | 'b' => { result *= 16; result += 11; }
-                'C' | 'c' => { result *= 16; result += 12; }
-                'D' | 'd' => { result *= 16; result += 13; }
-                'E' | 'e' => { result *= 16; result += 14; }
-                'F' | 'f' => { result *= 16; result += 15; }
-                'g' ... 'z' if valid => {
+                '0' => {
+                    result *= 16;
+                    result += 0;
+                }
+                '1' => {
+                    result *= 16;
+                    result += 1;
+                }
+                '2' => {
+                    result *= 16;
+                    result += 2;
+                }
+                '3' => {
+                    result *= 16;
+                    result += 3;
+                }
+                '4' => {
+                    result *= 16;
+                    result += 4;
+                }
+                '5' => {
+                    result *= 16;
+                    result += 5;
+                }
+                '6' => {
+                    result *= 16;
+                    result += 6;
+                }
+                '7' => {
+                    result *= 16;
+                    result += 7;
+                }
+                '8' => {
+                    result *= 16;
+                    result += 8;
+                }
+                '9' => {
+                    result *= 16;
+                    result += 9;
+                }
+                '_' if valid => {} // ignore underscores
+                'A' | 'a' => {
+                    result *= 16;
+                    result += 10;
+                }
+                'B' | 'b' => {
+                    result *= 16;
+                    result += 11;
+                }
+                'C' | 'c' => {
+                    result *= 16;
+                    result += 12;
+                }
+                'D' | 'd' => {
+                    result *= 16;
+                    result += 13;
+                }
+                'E' | 'e' => {
+                    result *= 16;
+                    result += 14;
+                }
+                'F' | 'f' => {
+                    result *= 16;
+                    result += 15;
+                }
+                'g'...'z' if valid => {
                     // Numbers should not have letters in them
-                    return Err(Error::SyntaxError)
-                },
-                'G' ... 'Z' if valid => {
+                    return Err(Error::SyntaxError);
+                }
+                'G'...'Z' if valid => {
                     // Numbers should not have letters in them
-                    return Err(Error::SyntaxError)
-                },
+                    return Err(Error::SyntaxError);
+                }
                 // Anything else means end of number
                 _ => break,
             }
@@ -335,13 +406,34 @@ mod test {
 
     #[test]
     fn int_literal() {
-        assert_eq!(Lexer::lex_tokens("123"), Ok((Token::DecimalIntLiteral(123), "")));
-        assert_eq!(Lexer::lex_tokens(" 123"), Ok((Token::DecimalIntLiteral(123), "")));
-        assert_eq!(Lexer::lex_tokens("123 "), Ok((Token::DecimalIntLiteral(123), " ")));
-        assert_eq!(Lexer::lex_tokens(" 123 "), Ok((Token::DecimalIntLiteral(123), " ")));
-        assert_eq!(Lexer::lex_tokens("0x100"), Ok((Token::HexIntLiteral(256), "")));
-        assert_eq!(Lexer::lex_tokens("0x8000_0000"), Ok((Token::HexIntLiteral(1 << 31), "")));
-        assert_eq!(Lexer::lex_tokens("-567"), Ok((Token::DecimalIntLiteral(-567), "")));
+        assert_eq!(
+            Lexer::lex_tokens("123"),
+            Ok((Token::DecimalIntLiteral(123), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(" 123"),
+            Ok((Token::DecimalIntLiteral(123), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("123 "),
+            Ok((Token::DecimalIntLiteral(123), " "))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(" 123 "),
+            Ok((Token::DecimalIntLiteral(123), " "))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("0x100"),
+            Ok((Token::HexIntLiteral(256), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("0x8000_0000"),
+            Ok((Token::HexIntLiteral(1 << 31), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("-567"),
+            Ok((Token::DecimalIntLiteral(-567), ""))
+        );
     }
 
     #[test]
@@ -358,23 +450,50 @@ mod test {
     #[test]
     fn identifiers() {
         assert_eq!(Lexer::lex_tokens("x"), Ok((Token::Identifier("x"), "")));
-        assert_eq!(Lexer::lex_tokens("lets"), Ok((Token::Identifier("lets"), "")));
-        assert_eq!(Lexer::lex_tokens("x==123"), Ok((Token::Identifier("x"), "==123")));
+        assert_eq!(
+            Lexer::lex_tokens("lets"),
+            Ok((Token::Identifier("lets"), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("x==123"),
+            Ok((Token::Identifier("x"), "==123"))
+        );
         assert_eq!(Lexer::lex_tokens("Abc"), Ok((Token::Identifier("Abc"), "")));
-        assert_eq!(Lexer::lex_tokens("Abc0"), Ok((Token::Identifier("Abc0"), "")));
-        assert_eq!(Lexer::lex_tokens("a_bc0"), Ok((Token::Identifier("a_bc0"), "")));
-        assert_eq!(Lexer::lex_tokens("_abc"), Ok((Token::Identifier("_abc"), "")));
+        assert_eq!(
+            Lexer::lex_tokens("Abc0"),
+            Ok((Token::Identifier("Abc0"), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("a_bc0"),
+            Ok((Token::Identifier("a_bc0"), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("_abc"),
+            Ok((Token::Identifier("_abc"), ""))
+        );
         assert_eq!(Lexer::lex_tokens("0abc"), Err(Error::SyntaxError));
     }
 
     #[test]
     fn strings() {
-        assert_eq!(Lexer::lex_tokens("\"test\""), Ok((Token::StringLiteral("test"), "")));
-        assert_eq!(Lexer::lex_tokens(" \"test\""), Ok((Token::StringLiteral("test"), "")));
-        assert_eq!(Lexer::lex_tokens("\"test\" "), Ok((Token::StringLiteral("test"), " ")));
+        assert_eq!(
+            Lexer::lex_tokens("\"test\""),
+            Ok((Token::StringLiteral("test"), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(" \"test\""),
+            Ok((Token::StringLiteral("test"), ""))
+        );
+        assert_eq!(
+            Lexer::lex_tokens("\"test\" "),
+            Ok((Token::StringLiteral("test"), " "))
+        );
         // The lexer doesn't re-write strings to remove the escapes. That
         // would require memory allocation.
-        assert_eq!(Lexer::lex_tokens("\"te\\\"st \" "), Ok((Token::StringLiteral("te\\\"st "), " ")));
+        assert_eq!(
+            Lexer::lex_tokens("\"te\\\"st \" "),
+            Ok((Token::StringLiteral("te\\\"st "), " "))
+        );
     }
 
     #[test]
@@ -423,7 +542,7 @@ return 0x200;
             Token::Return,
             Token::HexIntLiteral(512),
             Token::SemiColon,
-            Token::EOF
+            Token::EOF,
         ];
         let mut buffer = source;
         for expected_token in expected_tokens.iter() {
