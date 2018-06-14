@@ -34,4 +34,6 @@ pub enum Token<'a> {
     Comma,
     Colon,
     SemiColon,
+    ExclamationMark,
+    Caret,
 }

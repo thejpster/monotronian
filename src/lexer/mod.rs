@@ -22,7 +22,37 @@ enum Following {
     NoCharsAllowed
 }
 
+pub struct TokenIterator<'a> {
+    input: &'a str
+}
+
+impl<'a> Iterator for TokenIterator<'a> {
+    type Item = Result<Token<'a>, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.input == "" {
+            None
+        } else {
+            // get the next token from the start of the string
+            let res = Lexer::lex_tokens(self.input);
+            match res {
+                Ok((tok, remainder)) => {
+                    self.input = remainder;
+                    Some(Ok(tok))
+                }
+                Err(e) => {
+                    Some(Err(e))
+                }
+            }
+        }
+    }
+}
+
 impl Lexer {
+    pub fn iterate<'a>(input: &'a str) -> TokenIterator<'a> {
+        TokenIterator { input }
+    }
+
     pub fn lex_tokens(input: &str) -> Result<(Token, &str), Error> {
         let input = input.trim_left();
         if input.len() == 0 {
@@ -55,6 +85,10 @@ impl Lexer {
             Ok((Token::Plus, res))
         } else if let Some(res) = Self::matches(input, "-", Following::CharsAllowed) {
             Ok((Token::Minus, res))
+        } else if let Some(res) = Self::matches(input, "!", Following::CharsAllowed) {
+            Ok((Token::ExclamationMark, res))
+        } else if let Some(res) = Self::matches(input, "^", Following::CharsAllowed) {
+            Ok((Token::Caret, res))
         } else if let Some(res) = Self::matches(input, "/", Following::CharsAllowed) {
             Ok((Token::Divide, res))
         } else if let Some(res) = Self::matches(input, "*", Following::CharsAllowed) {
@@ -398,5 +432,9 @@ return 0x200;
             assert_eq!(token, *expected_token);
         }
         assert_eq!(buffer.len(), 0);
+
+        let tokens: Result<Vec<Token>, Error> = Lexer::iterate(source).collect();
+        let tokens = tokens.unwrap();
+        assert_eq!(&tokens[..], &expected_tokens[..]);
     }
 }
