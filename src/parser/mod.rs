@@ -6,6 +6,8 @@
 //! The resulting AST can then either be executed immediately, or stored in memory for later execution.
 //!
 //! The conversion back to text currently does not support indentation.
+//!
+//! For this to work, I'm going to need to write the grammar formally.
 
 use core::fmt;
 use lexer::Token;
@@ -82,19 +84,40 @@ pub enum Literal {
 #[derive(Debug, Clone)]
 pub enum Error {
     SyntaxError,
+    UnexpectedEndOfInput,
 }
 
-pub struct Parser {
-    _state: bool,
+pub struct Parser<'a> {
+    token_source: ::lexer::TokenIterator<'a>,
+    current: Token<'a>,
 }
 
-impl Parser {
-    pub fn new() -> Parser {
-        Parser { _state: true }
+impl<'a> Parser<'a> {
+    pub fn new(token_source: ::lexer::TokenIterator<'a>) -> Parser {
+        Parser {
+            token_source,
+            current: Token::EOF,
+        }
     }
 
-    pub fn feed(&mut self, _token: Token) -> Result<(), Error> {
-        Err(Error::SyntaxError)
+    /// Parse the token stream.
+    ///
+    /// We expect either a single expression, which we evaluate
+    /// or a series of statements.
+    pub fn parse_expression(&mut self) -> Result<Expression, Error> {
+        self.get()?;
+        unimplemented!();
+    }
+
+    fn get(&mut self) -> Result<(), Error> {
+        match self.token_source.next() {
+            Some(Ok(token)) => {
+                self.current = token;
+                Ok(())
+            }
+            Some(Err(_e)) => Err(Error::SyntaxError),
+            None => Err(Error::UnexpectedEndOfInput),
+        }
     }
 
     pub fn get_tree(self) -> Result<Block, Error> {
@@ -175,9 +198,9 @@ impl fmt::Display for Expression {
             }
             Expression::For(id, start, end, step, block) => {
                 if let Some(s) = step {
-                    write!(fmt, "for {} in {} to {} step {} {{", id, start, end, s)?;
+                    writeln!(fmt, "for {} in {} to {} step {} {{", id, start, end, s)?;
                 } else {
-                    write!(fmt, "for {} in {} to {} {{", id, start, end)?;
+                    writeln!(fmt, "for {} in {} to {} {{", id, start, end)?;
                 }
                 write!(fmt, "{}", block)?;
                 writeln!(fmt, "}}")
@@ -229,16 +252,39 @@ impl fmt::Display for Expression {
 #[cfg(test)]
 mod test {
     use super::*;
+    use lexer::Lexer;
 
     #[test]
-    fn make_parser() {
-        let mut _p = Parser::new();
-        // assert!(p.feed(Token::DecimalIntLiteral(123)).is_ok());
-        // let result = p.get_tree();
-        // // This is our block
-        // let expected = vec! [
-        //     Statement::Expression(Expression::Literal(Literal::DecimalInt(123)))
-        // ];
-        // assert_eq!(result.unwrap().0, expected);
+    fn basic_sum() {
+        let source = r#"1 + 2"#;
+        let mut p = Parser::new(Lexer::iterate(source));
+        let expr = p.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Infix(
+                Infix::Add,
+                Box::new(Expression::Literal(Literal::DecimalInt(1))),
+                Box::new(Expression::Literal(Literal::DecimalInt(2))),
+            )
+        );
+    }
+
+    #[test]
+    fn three_part_sum() {
+        let source = r#"1 + 2 + 3"#;
+        let mut p = Parser::new(Lexer::iterate(source));
+        let expr = p.parse_expression().unwrap();
+        assert_eq!(
+            expr,
+            Expression::Infix(
+                Infix::Add,
+                Box::new(Expression::Literal(Literal::DecimalInt(1))),
+                Box::new(Expression::Infix(
+                    Infix::Add,
+                    Box::new(Expression::Literal(Literal::DecimalInt(2))),
+                    Box::new(Expression::Literal(Literal::DecimalInt(3))),
+                )),
+            )
+        );
     }
 }
