@@ -61,6 +61,10 @@ impl Lexer {
             Ok((Token::DecimalIntLiteral(num), res))
         } else if let Some((string, res)) = Self::read_string(input)? {
             Ok((Token::StringLiteral(string), res))
+        } else if let Some(res) = Self::matches(input, "false", Following::NoCharsAllowed) {
+            Ok((Token::BoolLiteral(false), res))
+        } else if let Some(res) = Self::matches(input, "true", Following::NoCharsAllowed) {
+            Ok((Token::BoolLiteral(true), res))
         } else if let Some(res) = Self::matches(input, "if", Following::NoCharsAllowed) {
             Ok((Token::If, res))
         } else if let Some(res) = Self::matches(input, "else", Following::NoCharsAllowed) {
