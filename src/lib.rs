@@ -17,6 +17,7 @@
 extern crate alloc;
 
 pub mod lexer;
+pub mod parser;
 
 #[cfg(not(feature="no_std"))]
 use alloc::String;
