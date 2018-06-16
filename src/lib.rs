@@ -13,6 +13,8 @@
 #![cfg(not(feature = "no_std"))]
 #![feature(alloc)]
 
+#[macro_use]
+extern crate nom;
 extern crate alloc;
 
 pub mod lexer;

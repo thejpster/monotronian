@@ -7,19 +7,16 @@
 //! There's also no concept of declaring a function because each function is
 //! handled as a stand-alone unit to save memory.
 
-pub mod token;
+use nom;
+
 pub use self::token::Token;
+pub mod token;
 
 pub struct Lexer;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Error {
     SyntaxError,
-}
-
-enum Following {
-    CharsAllowed,
-    NoCharsAllowed,
 }
 
 pub struct TokenIterator<'a> {
@@ -46,6 +43,125 @@ impl<'a> Iterator for TokenIterator<'a> {
     }
 }
 
+/// Check if a string is a reserved word or an identifier.
+fn parse_reserved(word: nom::types::CompleteStr) -> Option<Token> {
+    match word.0 {
+        "break" => Some(Token::Break),
+        "else" => Some(Token::Else),
+        "false" => Some(Token::BoolLiteral(false)),
+        "for" => Some(Token::For),
+        "if" => Some(Token::If),
+        "let" => Some(Token::Let),
+        "return" => Some(Token::Return),
+        "while" => Some(Token::While),
+        "true" => Some(Token::BoolLiteral(true)),
+        w => {
+            match w.chars().next() {
+                Some('0' ... '9') => None,
+                _ => Some(Token::Identifier(word.0))
+            }
+        }
+    }
+}
+
+named!(keyword_or_identifier<nom::types::CompleteStr, Token>,
+    do_parse!(
+        id: map_opt!(take_while1!(|c: char| c.is_alphanumeric() || c == '_'), parse_reserved) >>
+        (id)
+    )
+);
+
+named!(
+    op_equal<&str, Token>,
+    do_parse!(tag!("==") >> (Token::Equal))
+);
+named!(
+    op_assign<&str, Token>,
+    do_parse!(tag!("=") >> (Token::Assign))
+);
+named!(
+    op_plus<&str, Token>,
+    do_parse!(tag!("+") >> (Token::Plus))
+);
+named!(
+    op_minus<&str, Token>,
+    do_parse!(tag!("-") >> (Token::Minus))
+);
+named!(
+    op_exclamationmark<&str, Token>,
+    do_parse!(tag!("!") >> (Token::ExclamationMark))
+);
+named!(
+    op_slash<&str, Token>,
+    do_parse!(tag!("/") >> (Token::Slash))
+);
+named!(
+    op_star<&str, Token>,
+    do_parse!(tag!("*") >> (Token::Star))
+);
+named!(
+    op_notequal<&str, Token>,
+    do_parse!(tag!("!=") >> (Token::NotEqual))
+);
+named!(
+    op_greaterthanequal<&str, Token>,
+    do_parse!(tag!(">=") >> (Token::GreaterThanEqual))
+);
+named!(
+    op_greaterthan<&str, Token>,
+    do_parse!(tag!(">") >> (Token::GreaterThan))
+);
+named!(
+    op_lessthanequal<&str, Token>,
+    do_parse!(tag!("<=") >> (Token::LessThanEqual))
+);
+named!(
+    op_lessthan<&str, Token>,
+    do_parse!(tag!("<") >> (Token::LessThan))
+);
+named!(
+    op_comma<&str, Token>,
+    do_parse!(tag!(",") >> (Token::Comma))
+);
+named!(
+    op_colon<&str, Token>,
+    do_parse!(tag!(":") >> (Token::Colon))
+);
+named!(
+    op_semicolon<&str, Token>,
+    do_parse!(tag!(";") >> (Token::SemiColon))
+);
+named!(
+    op_leftroundbracket<&str, Token>,
+    do_parse!(tag!("(") >> (Token::LeftRoundBracket))
+);
+named!(
+    op_rightroundbracket<&str, Token>,
+    do_parse!(tag!(")") >> (Token::RightRoundBracket))
+);
+named!(
+    op_leftcurlybracket<&str, Token>,
+    do_parse!(tag!("{") >> (Token::LeftCurlyBracket))
+);
+named!(
+    op_rightcurlybracket<&str, Token>,
+    do_parse!(tag!("}") >> (Token::RightCurlyBracket))
+);
+named!(
+    op_leftsquarebracket<&str, Token>,
+    do_parse!(tag!("[") >> (Token::LeftSquareBracket))
+);
+named!(
+    op_rightsquarebracket<&str, Token>,
+    do_parse!(tag!("]") >> (Token::RightSquareBracket))
+);
+
+named!(
+    op<&str, Token>,
+    alt!(op_equal | op_assign | op_plus | op_minus | op_exclamationmark | op_slash | op_star | op_notequal | op_greaterthanequal | op_greaterthan | op_lessthanequal | op_lessthan | op_comma | op_colon | op_semicolon | op_leftroundbracket | op_rightroundbracket | op_leftcurlybracket | op_rightcurlybracket | op_leftsquarebracket | op_rightsquarebracket)
+);
+
+
 impl Lexer {
     pub fn iterate<'a>(input: &'a str) -> TokenIterator<'a> {
         TokenIterator { input }
@@ -61,111 +177,28 @@ impl Lexer {
             Ok((Token::DecimalIntLiteral(num), res))
         } else if let Some((string, res)) = Self::read_string(input)? {
             Ok((Token::StringLiteral(string), res))
-        } else if let Some(res) = Self::matches(input, "false", Following::NoCharsAllowed) {
-            Ok((Token::BoolLiteral(false), res))
-        } else if let Some(res) = Self::matches(input, "true", Following::NoCharsAllowed) {
-            Ok((Token::BoolLiteral(true), res))
-        } else if let Some(res) = Self::matches(input, "if", Following::NoCharsAllowed) {
-            Ok((Token::If, res))
-        } else if let Some(res) = Self::matches(input, "else", Following::NoCharsAllowed) {
-            Ok((Token::Else, res))
-        } else if let Some(res) = Self::matches(input, "let", Following::NoCharsAllowed) {
-            Ok((Token::Let, res))
-        } else if let Some(res) = Self::matches(input, "for", Following::NoCharsAllowed) {
-            Ok((Token::For, res))
-        } else if let Some(res) = Self::matches(input, "while", Following::NoCharsAllowed) {
-            Ok((Token::While, res))
-        } else if let Some(res) = Self::matches(input, "break", Following::NoCharsAllowed) {
-            Ok((Token::Break, res))
-        } else if let Some(res) = Self::matches(input, "return", Following::NoCharsAllowed) {
-            Ok((Token::Return, res))
-        } else if let Some(res) = Self::matches(input, "==", Following::CharsAllowed) {
-            Ok((Token::Equal, res))
-        } else if let Some(res) = Self::matches(input, "=", Following::CharsAllowed) {
-            Ok((Token::Assign, res))
-        } else if let Some(res) = Self::matches(input, "+", Following::CharsAllowed) {
-            Ok((Token::Plus, res))
-        } else if let Some(res) = Self::matches(input, "-", Following::CharsAllowed) {
-            Ok((Token::Minus, res))
-        } else if let Some(res) = Self::matches(input, "!", Following::CharsAllowed) {
-            Ok((Token::ExclamationMark, res))
-        } else if let Some(res) = Self::matches(input, "^", Following::CharsAllowed) {
-            Ok((Token::Caret, res))
-        } else if let Some(res) = Self::matches(input, "/", Following::CharsAllowed) {
-            Ok((Token::Divide, res))
-        } else if let Some(res) = Self::matches(input, "*", Following::CharsAllowed) {
-            Ok((Token::Multiply, res))
-        } else if let Some(res) = Self::matches(input, "!=", Following::CharsAllowed) {
-            Ok((Token::NotEqual, res))
-        } else if let Some(res) = Self::matches(input, ">=", Following::CharsAllowed) {
-            Ok((Token::GreaterThanEqual, res))
-        } else if let Some(res) = Self::matches(input, ">", Following::CharsAllowed) {
-            Ok((Token::GreaterThan, res))
-        } else if let Some(res) = Self::matches(input, "<=", Following::CharsAllowed) {
-            Ok((Token::LessThanEqual, res))
-        } else if let Some(res) = Self::matches(input, "<", Following::CharsAllowed) {
-            Ok((Token::LessThan, res))
-        } else if let Some(res) = Self::matches(input, "!", Following::CharsAllowed) {
-            Ok((Token::Not, res))
-        } else if let Some(res) = Self::matches(input, ",", Following::CharsAllowed) {
-            Ok((Token::Comma, res))
-        } else if let Some(res) = Self::matches(input, ":", Following::CharsAllowed) {
-            Ok((Token::Colon, res))
-        } else if let Some(res) = Self::matches(input, ";", Following::CharsAllowed) {
-            Ok((Token::SemiColon, res))
-        } else if let Some(res) = Self::matches(input, "(", Following::CharsAllowed) {
-            Ok((Token::LeftRoundBracket, res))
-        } else if let Some(res) = Self::matches(input, ")", Following::CharsAllowed) {
-            Ok((Token::RightRoundBracket, res))
-        } else if let Some(res) = Self::matches(input, "{", Following::CharsAllowed) {
-            Ok((Token::LeftCurlyBracket, res))
-        } else if let Some(res) = Self::matches(input, "}", Following::CharsAllowed) {
-            Ok((Token::RightCurlyBracket, res))
-        } else if let Some(res) = Self::matches(input, "[", Following::CharsAllowed) {
-            Ok((Token::LeftSquareBracket, res))
-        } else if let Some(res) = Self::matches(input, "]", Following::CharsAllowed) {
-            Ok((Token::RightSquareBracket, res))
-        } else if let Some((ident, res)) = Self::read_identifier(input)? {
-            Ok((Token::Identifier(ident), res))
+        } else if let Ok((res, tok)) = keyword_or_identifier(nom::types::CompleteStr(input)) {
+            Ok((tok, res.0))
+        } else if let Ok((res, tok)) = op(input) {
+            Ok((tok, res))
         } else {
             Err(Error::SyntaxError)
         }
     }
 
-    /// Return true if given string is Some, and the first character in the
-    /// given string is alphanumeric. Return false otherwise.
-    fn starts_with_alphanumeric(following: Option<&str>) -> bool {
-        match following {
-            None => false,
-            Some(s) => match s.chars().next() {
-                None => false,
-                Some(c) => c.is_alphabetic(),
-            },
-        }
-    }
-
-    fn matches<'a>(input: &'a str, word: &'_ str, following: Following) -> Option<&'a str> {
+    fn matches<'a>(input: &'a str, word: &'_ str) -> Option<&'a str> {
         let word_len = word.len();
         if input.len() < word_len {
             None
         } else if input.get(0..word_len) == Some(word) {
-            match following {
-                Following::NoCharsAllowed => {
-                    if Self::starts_with_alphanumeric(input.get(word_len..)) {
-                        None
-                    } else {
-                        Some(&input[word_len..])
-                    }
-                }
-                Following::CharsAllowed => Some(&input[word_len..]),
-            }
+            Some(&input[word_len..])
         } else {
             None
         }
     }
 
     fn read_string<'a>(input: &'a str) -> Result<Option<(&'a str, &'a str)>, Error> {
-        if let Some(res) = Self::matches(input, "\"", Following::CharsAllowed) {
+        if let Some(res) = Self::matches(input, "\"") {
             let mut escaped = false;
             let mut byte_count = 0;
             for ch in res.chars() {
@@ -191,45 +224,16 @@ impl Lexer {
         }
     }
 
-    fn read_identifier<'a>(input: &'a str) -> Result<Option<(&'a str, &'a str)>, Error> {
-        let mut byte_count = 0;
-        for ch in input.chars() {
-            if byte_count == 0 {
-                match ch {
-                    'a'...'z' => {}
-                    'A'...'Z' => {}
-                    '_' => {}
-                    _ => break,
-                }
-            } else {
-                match ch {
-                    'a'...'z' => {}
-                    'A'...'Z' => {}
-                    '0'...'9' => {}
-                    '_' => {}
-                    _ => break,
-                }
-            }
-            byte_count += ch.len_utf8();
-        }
-        if byte_count > 0 {
-            // Got some chars
-            Ok(Some((&input[0..byte_count], &input[byte_count..])))
-        } else {
-            Ok(None)
-        }
-    }
-
     fn read_decimal<'a>(input: &'a str) -> Result<Option<(i64, &'a str)>, Error> {
         let mut input = input;
         let mut result = 0i64;
         let mut negative = false;
         let mut valid = false;
-        if let Some(res) = Self::matches(input, "-", Following::CharsAllowed) {
+        if let Some(res) = Self::matches(input, "-") {
             negative = true;
             input = res;
         }
-        if let Some(_) = Self::matches(input, "0x", Following::CharsAllowed) {
+        if let Some(_) = Self::matches(input, "0x") {
             // This is a hex literal - bail out as this routine only handles
             // decimal
             return Ok(None);
@@ -307,7 +311,7 @@ impl Lexer {
         let mut input = input;
         let mut result = 0i64;
         let mut valid = false;
-        if let Some(res) = Self::matches(input, "0x", Following::CharsAllowed) {
+        if let Some(res) = Self::matches(input, "0x") {
             input = res;
         } else {
             // Not a hex literal
@@ -409,6 +413,12 @@ mod test {
     use super::*;
 
     #[test]
+    fn bool_literal() {
+        assert_eq!(Lexer::lex_tokens(" false "), Ok((Token::BoolLiteral(false), " ")));
+        assert_eq!(Lexer::lex_tokens(" true "), Ok((Token::BoolLiteral(true), " ")));
+    }
+
+    #[test]
     fn int_literal() {
         assert_eq!(
             Lexer::lex_tokens("123"),
@@ -506,9 +516,9 @@ mod test {
 let x = 123;
 let y = foo(x);
 if y > x {
-    baz();
+    baz(true);
 } else {
-    bar();
+    bar(false);
 }
 return 0x200;
         "#;
@@ -533,6 +543,7 @@ return 0x200;
             Token::LeftCurlyBracket,
             Token::Identifier("baz"),
             Token::LeftRoundBracket,
+            Token::BoolLiteral(true),
             Token::RightRoundBracket,
             Token::SemiColon,
             Token::RightCurlyBracket,
@@ -540,6 +551,7 @@ return 0x200;
             Token::LeftCurlyBracket,
             Token::Identifier("bar"),
             Token::LeftRoundBracket,
+            Token::BoolLiteral(false),
             Token::RightRoundBracket,
             Token::SemiColon,
             Token::RightCurlyBracket,

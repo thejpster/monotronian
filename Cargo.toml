@@ -3,7 +3,9 @@ name = "monotronian"
 version = "0.1.0"
 authors = ["Jonathan 'theJPster' Pallant <github@thejpster.org.uk>"]
 
-[dependencies]
+[dependencies.nom]
+version = "4.0"
+default_features = false
 
 [features]
 no_std = []
