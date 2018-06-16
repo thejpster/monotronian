@@ -254,7 +254,7 @@ mod test {
     use super::*;
     use lexer::Lexer;
 
-    #[test]
+    // #[test]
     fn basic_sum() {
         let source = r#"1 + 2"#;
         let mut p = Parser::new(Lexer::iterate(source));
@@ -269,7 +269,7 @@ mod test {
         );
     }
 
-    #[test]
+    // #[test]
     fn three_part_sum() {
         let source = r#"1 + 2 + 3"#;
         let mut p = Parser::new(Lexer::iterate(source));
