@@ -17,6 +17,7 @@ pub struct Lexer;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Error {
     SyntaxError,
+    BadNumber,
 }
 
 pub struct TokenIterator<'a> {
@@ -55,12 +56,10 @@ fn parse_reserved(word: nom::types::CompleteStr) -> Option<Token> {
         "return" => Some(Token::Return),
         "while" => Some(Token::While),
         "true" => Some(Token::BoolLiteral(true)),
-        w => {
-            match w.chars().next() {
-                Some('0' ... '9') => None,
-                _ => Some(Token::Identifier(word.0))
-            }
-        }
+        w => match w.chars().next() {
+            Some('0'...'9') => None,
+            _ => Some(Token::Identifier(word.0)),
+        },
     }
 }
 
@@ -161,6 +160,36 @@ named!(
     alt!(op_equal | op_assign | op_plus | op_minus | op_exclamationmark | op_slash | op_star | op_notequal | op_greaterthanequal | op_greaterthan | op_lessthanequal | op_lessthan | op_comma | op_colon | op_semicolon | op_leftroundbracket | op_rightroundbracket | op_leftcurlybracket | op_rightcurlybracket | op_leftsquarebracket | op_rightsquarebracket)
 );
 
+named!(
+    hex_literal<nom::types::CompleteStr, Token>,
+    do_parse!(
+        tag!("0x") >>
+        num: map_res!(take_while1!(|c: char| c.is_alphanumeric() || c == '_'), |s| Lexer::convert_digits(s, 16)) >>
+        (Token::HexIntLiteral(num))
+    )
+);
+
+named!(
+    dec_literal<nom::types::CompleteStr, Token>,
+    do_parse!(
+        neg: opt!(tag!("-")) >>
+        num: map_res!(take_while1!(|c: char| c.is_alphanumeric() || c == '_'), |s| Lexer::convert_digits(s, 10)) >>
+        (Token::DecimalIntLiteral(if neg.is_some() { -num } else { num }))
+    )
+);
+
+named!(
+    string_literal<nom::types::CompleteStr, Token>,
+    do_parse!(
+        s: delimited!(
+            tag!("\""),
+            escaped!(take_until_either!("\"\\"), '\\', one_of!("\"\\")),
+            // take_until_either!("\""),
+            tag!("\"")
+        ) >>
+        (Token::StringLiteral(s.0))
+    )
+);
 
 impl Lexer {
     pub fn iterate<'a>(input: &'a str) -> TokenIterator<'a> {
@@ -171,12 +200,12 @@ impl Lexer {
         let input = input.trim_left();
         if input.len() == 0 {
             Ok((Token::EOF, ""))
-        } else if let Some((num, res)) = Self::read_hex(input)? {
-            Ok((Token::HexIntLiteral(num), res))
-        } else if let Some((num, res)) = Self::read_decimal(input)? {
-            Ok((Token::DecimalIntLiteral(num), res))
-        } else if let Some((string, res)) = Self::read_string(input)? {
-            Ok((Token::StringLiteral(string), res))
+        } else if let Ok((res, tok)) = string_literal(nom::types::CompleteStr(input)) {
+            Ok((tok, res.0))
+        } else if let Ok((res, tok)) = hex_literal(nom::types::CompleteStr(input)) {
+            Ok((tok, res.0))
+        } else if let Ok((res, tok)) = dec_literal(nom::types::CompleteStr(input)) {
+            Ok((tok, res.0))
         } else if let Ok((res, tok)) = keyword_or_identifier(nom::types::CompleteStr(input)) {
             Ok((tok, res.0))
         } else if let Ok((res, tok)) = op(input) {
@@ -186,224 +215,30 @@ impl Lexer {
         }
     }
 
-    fn matches<'a>(input: &'a str, word: &'_ str) -> Option<&'a str> {
-        let word_len = word.len();
-        if input.len() < word_len {
-            None
-        } else if input.get(0..word_len) == Some(word) {
-            Some(&input[word_len..])
-        } else {
-            None
-        }
-    }
-
-    fn read_string<'a>(input: &'a str) -> Result<Option<(&'a str, &'a str)>, Error> {
-        if let Some(res) = Self::matches(input, "\"") {
-            let mut escaped = false;
-            let mut byte_count = 0;
-            for ch in res.chars() {
-                if ch == '\\' {
-                    escaped = true;
-                } else if ch == '"' && !escaped {
-                    return Ok(
-                        // It's OK, these are guaranteed to be on UTF-8
-                        // character boundaries
-                        Some((unsafe { res.slice_unchecked(0, byte_count) }, unsafe {
-                            res.slice_unchecked(byte_count + 1, res.len())
-                        })),
-                    );
-                } else {
-                    escaped = false;
-                }
-                byte_count = byte_count + ch.len_utf8();
-            }
-            // Oh dear - an unterminated string.
-            Err(Error::SyntaxError)
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn read_decimal<'a>(input: &'a str) -> Result<Option<(i64, &'a str)>, Error> {
-        let mut input = input;
-        let mut result = 0i64;
-        let mut negative = false;
-        let mut valid = false;
-        if let Some(res) = Self::matches(input, "-") {
-            negative = true;
-            input = res;
-        }
-        if let Some(_) = Self::matches(input, "0x") {
-            // This is a hex literal - bail out as this routine only handles
-            // decimal
-            return Ok(None);
-        }
-
-        let mut byte_count = 0;
-        for ch in input.chars() {
-            match ch {
-                '0' => {
-                    result *= 10;
-                    result += 0;
-                }
-                '1' => {
-                    result *= 10;
-                    result += 1;
-                }
-                '2' => {
-                    result *= 10;
-                    result += 2;
-                }
-                '3' => {
-                    result *= 10;
-                    result += 3;
-                }
-                '4' => {
-                    result *= 10;
-                    result += 4;
-                }
-                '5' => {
-                    result *= 10;
-                    result += 5;
-                }
-                '6' => {
-                    result *= 10;
-                    result += 6;
-                }
-                '7' => {
-                    result *= 10;
-                    result += 7;
-                }
-                '8' => {
-                    result *= 10;
-                    result += 8;
-                }
-                '9' => {
-                    result *= 10;
-                    result += 9;
-                }
-                '_' if valid => {} // ignore underscores except at the start
-                'a'...'z' if valid => {
-                    // Numbers should not have letters in them
-                    return Err(Error::SyntaxError);
-                }
-                'A'...'Z' if valid => {
-                    // Numbers should not have letters in them
-                    return Err(Error::SyntaxError);
-                }
-                // Anything else means end of number
-                _ => break,
-            }
-            valid = true;
-            byte_count += ch.len_utf8();
-        }
-        if valid {
-            if negative {
-                result = -result;
-            }
-            Ok(Some((result, &input[byte_count..])))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn read_hex<'a>(input: &'a str) -> Result<Option<(i64, &'a str)>, Error> {
-        let mut input = input;
+    /// Like i64::from_str_radix but ignores underscores.
+    fn convert_digits<'a>(input: nom::types::CompleteStr, radix: u32) -> Result<i64, Error> {
         let mut result = 0i64;
         let mut valid = false;
-        if let Some(res) = Self::matches(input, "0x") {
-            input = res;
-        } else {
-            // Not a hex literal
-            return Ok(None);
-        }
 
-        let mut byte_count = 0;
-        for ch in input.chars() {
+        for ch in input.0.chars() {
             match ch {
-                '0' => {
-                    result *= 16;
-                    result += 0;
+                '_' => {
+                    // ignore underscores except at the start
+                    if !valid {
+                        return Err(Error::BadNumber);
+                    }
                 }
-                '1' => {
-                    result *= 16;
-                    result += 1;
+                _ => {
+                    result *= i64::from(radix);
+                    result += ch.to_digit(radix).ok_or(Error::BadNumber)? as i64;
                 }
-                '2' => {
-                    result *= 16;
-                    result += 2;
-                }
-                '3' => {
-                    result *= 16;
-                    result += 3;
-                }
-                '4' => {
-                    result *= 16;
-                    result += 4;
-                }
-                '5' => {
-                    result *= 16;
-                    result += 5;
-                }
-                '6' => {
-                    result *= 16;
-                    result += 6;
-                }
-                '7' => {
-                    result *= 16;
-                    result += 7;
-                }
-                '8' => {
-                    result *= 16;
-                    result += 8;
-                }
-                '9' => {
-                    result *= 16;
-                    result += 9;
-                }
-                '_' if valid => {} // ignore underscores
-                'A' | 'a' => {
-                    result *= 16;
-                    result += 10;
-                }
-                'B' | 'b' => {
-                    result *= 16;
-                    result += 11;
-                }
-                'C' | 'c' => {
-                    result *= 16;
-                    result += 12;
-                }
-                'D' | 'd' => {
-                    result *= 16;
-                    result += 13;
-                }
-                'E' | 'e' => {
-                    result *= 16;
-                    result += 14;
-                }
-                'F' | 'f' => {
-                    result *= 16;
-                    result += 15;
-                }
-                'g'...'z' if valid => {
-                    // Numbers should not have letters in them
-                    return Err(Error::SyntaxError);
-                }
-                'G'...'Z' if valid => {
-                    // Numbers should not have letters in them
-                    return Err(Error::SyntaxError);
-                }
-                // Anything else means end of number
-                _ => break,
             }
             valid = true;
-            byte_count += ch.len_utf8();
         }
         if valid {
-            Ok(Some((result, &input[byte_count..])))
+            Ok(result)
         } else {
-            Ok(None)
+            Err(Error::BadNumber)
         }
     }
 }
@@ -414,8 +249,14 @@ mod test {
 
     #[test]
     fn bool_literal() {
-        assert_eq!(Lexer::lex_tokens(" false "), Ok((Token::BoolLiteral(false), " ")));
-        assert_eq!(Lexer::lex_tokens(" true "), Ok((Token::BoolLiteral(true), " ")));
+        assert_eq!(
+            Lexer::lex_tokens(" false "),
+            Ok((Token::BoolLiteral(false), " "))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(" true "),
+            Ok((Token::BoolLiteral(true), " "))
+        );
     }
 
     #[test]
