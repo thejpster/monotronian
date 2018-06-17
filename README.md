@@ -37,7 +37,7 @@ You smell!
 > edit foo
 <full screen editor appears for the 'foo' function>
 > list foo
-let parts = ['a', 'b', 'c', 'd']
+let parts = ["a", "b", "c", "d"]
 for x in 1..4 {
 	print("parts[");
 	print(x);
@@ -46,15 +46,9 @@ for x in 1..4 {
 	print("\n");
 }
 > foo()
-x is 1
-x is 2
-x is 3
-x is 4
-x is 5
-x is 6
-x is 7
-x is 8
-x is 9
-x is 10
+parts[1] is "a"
+parts[2] is "b"
+parts[3] is "c"
+parts[4] is "d"
 >
 ```
