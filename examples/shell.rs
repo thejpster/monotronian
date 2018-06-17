@@ -22,7 +22,7 @@ fn main() -> Result<(), std::io::Error> {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         println!("You wrote: {:?}", input);
-        match parser.parse(&input, &mut Output) {
+        match parser.parse(input.as_bytes(), &mut Output) {
             Ok(value) => println!("{:?}", value),
             Err(err) => eprintln!("Error: {:?}", err),
         }

@@ -11,6 +11,7 @@
 
 use core::fmt;
 use lexer::Token;
+use super::display_ascii_string;
 
 /// A linear series of statements
 #[derive(PartialEq, Debug, Clone)]
@@ -26,7 +27,7 @@ pub enum Statement {
 
 /// A look-up in our hashmap of local/global variables
 #[derive(PartialEq, Debug, Clone)]
-pub struct Identifier(String);
+pub struct Identifier(Vec<u8>);
 
 /// Expressions are how things are calculated
 #[derive(PartialEq, Debug, Clone)]
@@ -75,7 +76,7 @@ pub enum Prefix {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Literal {
-    String(String),
+    String(Vec<u8>),
     DecimalInt(i64),
     HexInt(i64),
     Bool(bool),
@@ -146,14 +147,14 @@ impl fmt::Display for Statement {
 }
 impl fmt::Display for Identifier {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "{}", self.0)
+        display_ascii_string(&self.0, fmt)
     }
 }
 
 impl fmt::Display for Literal {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Literal::String(x) => write!(fmt, "\"{}\"", x),
+            Literal::String(x) => display_ascii_string(x, fmt),
             Literal::DecimalInt(x) => write!(fmt, "{}", x),
             Literal::HexInt(x) => write!(fmt, "0x{:x}", x),
             Literal::Bool(x) => write!(fmt, "{}", x),
@@ -256,7 +257,7 @@ mod test {
 
     // #[test]
     fn basic_sum() {
-        let source = r#"1 + 2"#;
+        let source = br#"1 + 2"#;
         let mut p = Parser::new(Lexer::iterate(source));
         let expr = p.parse_expression().unwrap();
         assert_eq!(
@@ -271,7 +272,7 @@ mod test {
 
     // #[test]
     fn three_part_sum() {
-        let source = r#"1 + 2 + 3"#;
+        let source = br#"1 + 2 + 3"#;
         let mut p = Parser::new(Lexer::iterate(source));
         let expr = p.parse_expression().unwrap();
         assert_eq!(

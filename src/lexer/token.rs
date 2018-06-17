@@ -1,8 +1,8 @@
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token<'a> {
     EOF,
-    Identifier(&'a str),
-    StringLiteral(&'a str),
+    Identifier(&'a [u8]),
+    StringLiteral(&'a [u8]),
     DecimalIntLiteral(i64),
     HexIntLiteral(i64),
     BoolLiteral(bool),

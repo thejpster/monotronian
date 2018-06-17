@@ -21,9 +21,6 @@ pub mod lexer;
 pub mod parser;
 
 #[cfg(not(feature = "no_std"))]
-use alloc::String;
-
-#[cfg(not(feature = "no_std"))]
 use std as core;
 
 pub struct Parser {
@@ -33,14 +30,17 @@ pub struct Parser {
 #[derive(Debug)]
 pub enum Error<'a> {
     Unknown,
-    Lexer(lexer::Error, &'a str),
+    Lexer(lexer::Error<'a>),
     Incomplete,
 }
 
 #[derive(Debug)]
 pub enum Value {
-    String(String),
+    /// Our strings are 8-bit strings in CodePage 850
+    String(Vec<u8>),
+    /// Our numbers are 64-bit signed
     Integer(i64),
+    /// This is currently unsupported.
     Real(f64),
 }
 
@@ -57,7 +57,7 @@ impl Parser {
 
     pub fn parse<'a>(
         &mut self,
-        buffer: &'a str,
+        buffer: &'a [u8],
         debug: &mut core::fmt::Write,
     ) -> Result<Value, Error<'a>> {
         let mut buffer = buffer;
@@ -74,12 +74,25 @@ impl Parser {
                     writeln!(debug, "Got {:?}", token).unwrap();
                 }
                 Err(e) => {
-                    return Err(Error::Lexer(e, buffer));
+                    return Err(Error::Lexer(e));
                 }
             }
         }
         Ok(Value::Integer(0))
     }
+}
+
+/// Display an ASCII string. We use CodePage 850, but `write!` expects Unicode
+/// so we limit ourselves to the visible ASCII subset.
+pub(crate) fn display_ascii_string(buf: &[u8], fmt: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    for ch in buf.iter() {
+        match *ch {
+            0x20 ... 0x7f => write!(fmt, "{}", *ch as char).unwrap(),
+            b'\n' => write!(fmt, "\\n").unwrap(),
+            _ => write!(fmt, "?").unwrap(),
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

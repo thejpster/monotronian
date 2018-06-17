@@ -6,6 +6,7 @@ authors = ["Jonathan 'theJPster' Pallant <github@thejpster.org.uk>"]
 [dependencies.nom]
 version = "4.0"
 default_features = false
+features = ["verbose-errors"]
 
 [features]
 no_std = []
