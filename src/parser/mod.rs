@@ -36,18 +36,17 @@ pub enum Expression {
     Literal(Literal),
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
-    /// Loop variable, start value, end value, step
+    /// Loop variable, loop object
     For(
         Identifier,
         Box<Expression>,
-        Box<Expression>,
-        Option<Box<Expression>>,
         Box<Block>,
     ),
     /// The expression is checked for truthiness
     IfExpr(Box<Expression>, Block, Option<Block>),
     /// First expression must be a string. Second is the arguments.
     FunctionCall(Box<Expression>, Vec<Expression>),
+    Range(i64, i64),
     Array(Vec<Expression>),
     Hash(Vec<(Literal, Expression)>),
     /// The first expression must be an Array or a Hash
@@ -197,14 +196,13 @@ impl fmt::Display for Expression {
             Expression::Infix(infix, expr_l, expr_r) => {
                 write!(fmt, "{} {} {}", expr_l, infix, expr_r)
             }
-            Expression::For(id, start, end, step, block) => {
-                if let Some(s) = step {
-                    writeln!(fmt, "for {} in {} to {} step {} {{", id, start, end, s)?;
-                } else {
-                    writeln!(fmt, "for {} in {} to {} {{", id, start, end)?;
-                }
+            Expression::For(id, range, block) => {
+                writeln!(fmt, "for {} in {} {{", id, range)?;
                 write!(fmt, "{}", block)?;
                 writeln!(fmt, "}}")
+            }
+            Expression::Range(start, end) => {
+                write!(fmt, "{}..{}", start, end)
             }
             Expression::IfExpr(expr, true_block, false_block) => {
                 writeln!(fmt, "if ({}) {{", expr)?;
