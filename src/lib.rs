@@ -84,10 +84,13 @@ impl Parser {
 
 /// Display an ASCII string. We use CodePage 850, but `write!` expects Unicode
 /// so we limit ourselves to the visible ASCII subset.
-pub(crate) fn display_ascii_string(buf: &[u8], fmt: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+pub(crate) fn display_ascii_string(
+    buf: &[u8],
+    fmt: &mut ::core::fmt::Formatter,
+) -> ::core::fmt::Result {
     for ch in buf.iter() {
         match *ch {
-            0x20 ... 0x7f => write!(fmt, "{}", *ch as char).unwrap(),
+            0x20...0x7f => write!(fmt, "{}", *ch as char).unwrap(),
             b'\n' => write!(fmt, "\\n").unwrap(),
             _ => write!(fmt, "?").unwrap(),
         }

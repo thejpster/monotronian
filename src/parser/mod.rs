@@ -9,9 +9,9 @@
 //!
 //! For this to work, I'm going to need to write the grammar formally.
 
+use super::display_ascii_string;
 use core::fmt;
 use lexer::Token;
-use super::display_ascii_string;
 
 /// A linear series of statements
 #[derive(PartialEq, Debug, Clone)]
@@ -37,11 +37,7 @@ pub enum Expression {
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
     /// Loop variable, loop object
-    For(
-        Identifier,
-        Box<Expression>,
-        Box<Block>,
-    ),
+    For(Identifier, Box<Expression>, Box<Block>),
     /// The expression is checked for truthiness
     IfExpr(Box<Expression>, Block, Option<Block>),
     /// First expression must be a string. Second is the arguments.
@@ -201,9 +197,7 @@ impl fmt::Display for Expression {
                 write!(fmt, "{}", block)?;
                 writeln!(fmt, "}}")
             }
-            Expression::Range(start, end) => {
-                write!(fmt, "{}..{}", start, end)
-            }
+            Expression::Range(start, end) => write!(fmt, "{}..{}", start, end),
             Expression::IfExpr(expr, true_block, false_block) => {
                 writeln!(fmt, "if ({}) {{", expr)?;
                 write!(fmt, "{}", true_block)?;

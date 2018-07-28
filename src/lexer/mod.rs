@@ -7,11 +7,10 @@
 //! There's also no concept of declaring a function because each function is
 //! handled as a stand-alone unit to save memory.
 
-use nom;
 use nom::types::CompleteByteSlice;
 
-use super::display_ascii_string;
 pub use self::token::Token;
+use super::display_ascii_string;
 pub mod token;
 
 pub struct Lexer;
@@ -63,22 +62,162 @@ impl<'a> Iterator for TokenIterator<'a> {
     }
 }
 
+fn lower(byte_char: u8) -> u8 {
+    if byte_char >= b'A' && byte_char <= b'Z' {
+        (byte_char - b'A') + b'a'
+    } else {
+        byte_char
+    }
+}
+
+/// Checks if `token` is equal to `compare_to`, ignoring case differences for
+/// ASCII letters 'A' through 'Z'. The `compare_to` argument should be in
+/// lower-case.
+fn check_case_insensitive(token: &[u8], compare_to: &[u8]) -> bool {
+    if token.len() != compare_to.len() {
+        false
+    } else {
+        token
+            .iter()
+            .map(|c| lower(*c))
+            .zip(compare_to.iter())
+            .all(|(a, b)| a == *b)
+    }
+}
+
 /// Check if a string is a reserved word or an identifier.
 fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
-    match word.0 {
-        b"break" => Some(Token::Break),
-        b"else" => Some(Token::Else),
-        b"false" => Some(Token::BoolLiteral(false)),
-        b"for" => Some(Token::For),
-        b"if" => Some(Token::If),
-        b"let" => Some(Token::Let),
-        b"return" => Some(Token::Return),
-        b"while" => Some(Token::While),
-        b"true" => Some(Token::BoolLiteral(true)),
-        w => match w.iter().next() {
-            Some(b'0'...b'9') => None,
-            _ => Some(Token::Identifier(word.0)),
-        },
+    if check_case_insensitive(word.0, b"as") {
+        return Some(Token::As);
+    }
+    if check_case_insensitive(word.0, b"break") {
+        return Some(Token::Break);
+    }
+    if check_case_insensitive(word.0, b"dim") {
+        return Some(Token::Dim);
+    }
+    if check_case_insensitive(word.0, b"else") {
+        return Some(Token::Else);
+    }
+    if check_case_insensitive(word.0, b"elseif") {
+        return Some(Token::ElseIf);
+    }
+    if check_case_insensitive(word.0, b"end") {
+        return Some(Token::End);
+    }
+    if check_case_insensitive(word.0, b"endif") {
+        return Some(Token::EndIf);
+    }
+    if check_case_insensitive(word.0, b"false") {
+        return Some(Token::BoolLiteral(false));
+    }
+    if check_case_insensitive(word.0, b"for") {
+        return Some(Token::For);
+    }
+    if check_case_insensitive(word.0, b"gosub") {
+        return Some(Token::Gosub);
+    }
+    if check_case_insensitive(word.0, b"goto") {
+        return Some(Token::Goto);
+    }
+    if check_case_insensitive(word.0, b"if") {
+        return Some(Token::If);
+    }
+    if check_case_insensitive(word.0, b"input") {
+        return Some(Token::Input);
+    }
+    if check_case_insensitive(word.0, b"integer") {
+        return Some(Token::Integer);
+    }
+    if check_case_insensitive(word.0, b"let") {
+        return Some(Token::Let);
+    }
+    if check_case_insensitive(word.0, b"next") {
+        return Some(Token::Next);
+    }
+    if check_case_insensitive(word.0, b"print") {
+        return Some(Token::Print);
+    }
+    if check_case_insensitive(word.0, b"return") {
+        return Some(Token::Return);
+    }
+    if check_case_insensitive(word.0, b"then") {
+        return Some(Token::Then);
+    }
+    if check_case_insensitive(word.0, b"true") {
+        return Some(Token::BoolLiteral(true));
+    }
+    match word.0.iter().next() {
+        Some(b'0'...b'9') => None,
+        _ => Some(Token::Identifier(word.0)),
+    }
+}
+
+/// Check if a string is a reserved word or an identifier.
+fn parse_reserved_inverse(word: CompleteByteSlice) -> Option<&[u8]> {
+    if check_case_insensitive(word.0, b"as") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"break") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"dim") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"else") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"elseif") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"end") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"endif") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"false") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"for") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"gosub") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"goto") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"if") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"input") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"integer") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"let") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"next") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"print") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"return") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"then") {
+        return None;
+    }
+    if check_case_insensitive(word.0, b"true") {
+        return None;
+    }
+    match word.0.iter().next() {
+        Some(b'0'...b'9') => None,
+        _ => Some(word.0),
     }
 }
 
@@ -86,6 +225,24 @@ named!(keyword_or_identifier<CompleteByteSlice, Token>,
     do_parse!(
         id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), parse_reserved) >>
         (id)
+    )
+);
+
+named!(
+    string_identifier<CompleteByteSlice, Token>,
+    do_parse!(
+        id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), parse_reserved_inverse) >>
+        tag!("$") >>
+        (Token::StringIdentifier(id))
+    )
+);
+
+named!(
+    integer_identifier<CompleteByteSlice, Token>,
+    do_parse!(
+        id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), parse_reserved_inverse) >>
+        tag!("%") >>
+        (Token::IntegerIdentifier(id))
     )
 );
 
@@ -157,22 +314,6 @@ named!(
     op_rightroundbracket<CompleteByteSlice, Token>,
     do_parse!(tag!(")") >> (Token::RightRoundBracket))
 );
-named!(
-    op_leftcurlybracket<CompleteByteSlice, Token>,
-    do_parse!(tag!("{") >> (Token::LeftCurlyBracket))
-);
-named!(
-    op_rightcurlybracket<CompleteByteSlice, Token>,
-    do_parse!(tag!("}") >> (Token::RightCurlyBracket))
-);
-named!(
-    op_leftsquarebracket<CompleteByteSlice, Token>,
-    do_parse!(tag!("[") >> (Token::LeftSquareBracket))
-);
-named!(
-    op_rightsquarebracket<CompleteByteSlice, Token>,
-    do_parse!(tag!("]") >> (Token::RightSquareBracket))
-);
 
 named!(
     op<CompleteByteSlice, Token>,
@@ -193,12 +334,13 @@ named!(
         op_colon |
         op_semicolon |
         op_leftroundbracket |
-        op_rightroundbracket |
-        op_leftcurlybracket |
-        op_rightcurlybracket |
-        op_leftsquarebracket |
-        op_rightsquarebracket
+        op_rightroundbracket
     )
+);
+
+named!(
+    new_line<CompleteByteSlice, Token>,
+    do_parse!(tag!("\n") >> (Token::NewLine))
 );
 
 fn is_alphanumeric(ch: u8) -> bool {
@@ -225,57 +367,60 @@ named!(
 
 // For some reason this parser causes nom to enter an infinite loop.
 
-// named!(
-//     string_content<CompleteByteSlice, CompleteByteSlice>,
-//     escaped!(take_until_either!("\"\\"), '\\', one_of!("\"\\"))
-// );
+named!(
+    string_content<CompleteByteSlice, CompleteByteSlice>,
+    escaped!(none_of!("\"\\"), '\\', one_of!("\"\\"))
+);
 
-// named!(
-//     string_literal<CompleteByteSlice, Token>,
-//     do_parse!(
-//         s: delimited!(tag!("\""), string_content, tag!("\"")) >>
-//         (Token::StringLiteral(s.0))
-//     )
-// );
+named!(
+    string_literal<CompleteByteSlice, Token>,
+    do_parse!(
+        s: delimited!(tag!("\""), string_content, tag!("\"")) >>
+        (Token::StringLiteral(s.0))
+    )
+);
 
-fn string_literal(input: CompleteByteSlice) -> nom::IResult<CompleteByteSlice, Token, u32> {
-    let mut bytes = input.0.iter();
-    let mut byte_count: usize = 0;
-    let mut escaped = false;
-    if let Some(b'"') = bytes.next() {
-        loop {
-            match bytes.next() {
-                Some(b'\\') => {
-                    escaped = true;
-                    byte_count += 1;
-                }
-                Some(b'"') if !escaped => {
-                    break
-                }
-                Some(_c) => {
-                    escaped = false;
-                    byte_count += 1;
-                }
-                None => {
-                    // Ran out of text
-                    return Err(nom::Err::Error(error_position!(input, nom::ErrorKind::OneOf)));
-                }
-            }
-        }
-        let contents = &input.0[1 .. byte_count + 1];
-        let remainder = &input.0[byte_count + 2 .. input.0.len()];
-        Ok((CompleteByteSlice(remainder), Token::StringLiteral(contents)))
-    } else {
-        Err(nom::Err::Error(error_position!(input, nom::ErrorKind::OneOf)))
-    }
-}
+// fn string_literal(input: CompleteByteSlice) -> nom::IResult<CompleteByteSlice, Token, u32> {
+//     let mut bytes = input.0.iter();
+//     let mut byte_count: usize = 0;
+//     let mut escaped = false;
+//     if let Some(b'"') = bytes.next() {
+//         loop {
+//             match bytes.next() {
+//                 Some(b'\\') => {
+//                     escaped = true;
+//                     byte_count += 1;
+//                 }
+//                 Some(b'"') if !escaped => {
+//                     break
+//                 }
+//                 Some(_c) => {
+//                     escaped = false;
+//                     byte_count += 1;
+//                 }
+//                 None => {
+//                     // Ran out of text
+//                     return Err(nom::Err::Error(error_position!(input, nom::ErrorKind::OneOf)));
+//                 }
+//             }
+//         }
+//         let contents = &input.0[1 .. byte_count + 1];
+//         let remainder = &input.0[byte_count + 2 .. input.0.len()];
+//         Ok((CompleteByteSlice(remainder), Token::StringLiteral(contents)))
+//     } else {
+//         Err(nom::Err::Error(error_position!(input, nom::ErrorKind::OneOf)))
+//     }
+// }
 
 named!(parse_token<CompleteByteSlice, Token>,
     alt!(
+        new_line |
         hex_literal |
         dec_literal |
         string_literal |
         op |
+        string_identifier |
+        integer_identifier |
         keyword_or_identifier
     )
 );
@@ -295,7 +440,9 @@ fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, E
             }
             _ => {
                 result *= i64::from(radix);
-                result += (*ch as char).to_digit(radix).ok_or(Error::BadNumber(input.0))? as i64;
+                result += (*ch as char)
+                    .to_digit(radix)
+                    .ok_or(Error::BadNumber(input.0))? as i64;
             }
         }
         valid = true;
@@ -318,7 +465,7 @@ impl Lexer {
         // Trim off leading whitespace
         loop {
             match input.get(0) {
-                Some(b' ') | Some(b'\n') | Some(b'\t') | Some(b'\r') => input = &input[1..],
+                Some(b' ') | Some(b'\t') => input = &input[1..],
                 _ => break,
             }
         }
@@ -335,7 +482,6 @@ impl Lexer {
 #[cfg(test)]
 mod test {
     use super::*;
-
 
     #[test]
     fn bool_literal() {
@@ -383,18 +529,64 @@ mod test {
 
     #[test]
     fn keywords() {
-        assert_eq!(Lexer::lex_tokens(&b" if"[..]), Ok((Token::If, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"if#"[..]), Ok((Token::If, &b"#"[..])));
-        assert_eq!(Lexer::lex_tokens(&b"let"[..]), Ok((Token::Let, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"return"[..]), Ok((Token::Return, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"while"[..]), Ok((Token::While, &b""[..])));
+        assert_eq!(Lexer::lex_tokens(&b"as"[..]), Ok((Token::As, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"break"[..]),
+            Ok((Token::Break, &b""[..]))
+        );
+        assert_eq!(Lexer::lex_tokens(&b"dim"[..]), Ok((Token::Dim, &b""[..])));
+        assert_eq!(Lexer::lex_tokens(&b"else"[..]), Ok((Token::Else, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"elseif"[..]),
+            Ok((Token::ElseIf, &b""[..]))
+        );
+        assert_eq!(Lexer::lex_tokens(&b"end"[..]), Ok((Token::End, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"endif"[..]),
+            Ok((Token::EndIf, &b""[..]))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(&b"false"[..]),
+            Ok((Token::BoolLiteral(false), &b""[..]))
+        );
         assert_eq!(Lexer::lex_tokens(&b"for"[..]), Ok((Token::For, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"break"[..]), Ok((Token::Break, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"gosub"[..]),
+            Ok((Token::Gosub, &b""[..]))
+        );
+        assert_eq!(Lexer::lex_tokens(&b"goto"[..]), Ok((Token::Goto, &b""[..])));
+        assert_eq!(Lexer::lex_tokens(&b"if"[..]), Ok((Token::If, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"input"[..]),
+            Ok((Token::Input, &b""[..]))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(&b"integer"[..]),
+            Ok((Token::Integer, &b""[..]))
+        );
+        assert_eq!(Lexer::lex_tokens(&b"let"[..]), Ok((Token::Let, &b""[..])));
+        assert_eq!(Lexer::lex_tokens(&b"next"[..]), Ok((Token::Next, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"print"[..]),
+            Ok((Token::Print, &b""[..]))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(&b"return"[..]),
+            Ok((Token::Return, &b""[..]))
+        );
+        assert_eq!(Lexer::lex_tokens(&b"then"[..]), Ok((Token::Then, &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"true"[..]),
+            Ok((Token::BoolLiteral(true), &b""[..]))
+        );
     }
 
     #[test]
     fn identifiers() {
-        assert_eq!(Lexer::lex_tokens(&b"x"[..]), Ok((Token::Identifier(&b"x"[..]), &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"x"[..]),
+            Ok((Token::Identifier(&b"x"[..]), &b""[..]))
+        );
         assert_eq!(
             Lexer::lex_tokens(&b"lets"[..]),
             Ok((Token::Identifier(&b"lets"[..]), &b""[..]))
@@ -403,7 +595,10 @@ mod test {
             Lexer::lex_tokens(&b"x==123"[..]),
             Ok((Token::Identifier(&b"x"[..]), &b"==123"[..]))
         );
-        assert_eq!(Lexer::lex_tokens(&b"Abc"[..]), Ok((Token::Identifier(&b"Abc"[..]), &b""[..])));
+        assert_eq!(
+            Lexer::lex_tokens(&b"Abc"[..]),
+            Ok((Token::Identifier(&b"Abc"[..]), &b""[..]))
+        );
         assert_eq!(
             Lexer::lex_tokens(&b"Abc0"[..]),
             Ok((Token::Identifier(&b"Abc0"[..]), &b""[..]))
@@ -441,61 +636,20 @@ mod test {
         );
     }
 
-    #[test]
-    fn complicated_source() {
-        let source = br#"
-let x = 123;
-let y = foo(x);
-if y > x {
-    baz(true);
-} else {
-    bar(false);
-}
-return 0x200;
-        "#;
-        let expected_tokens = [
-            Token::Let,
-            Token::Identifier(b"x"),
-            Token::Assign,
-            Token::DecimalIntLiteral(123),
-            Token::SemiColon,
-            Token::Let,
-            Token::Identifier(b"y"),
-            Token::Assign,
-            Token::Identifier(b"foo"),
-            Token::LeftRoundBracket,
-            Token::Identifier(b"x"),
-            Token::RightRoundBracket,
-            Token::SemiColon,
-            Token::If,
-            Token::Identifier(b"y"),
-            Token::GreaterThan,
-            Token::Identifier(b"x"),
-            Token::LeftCurlyBracket,
-            Token::Identifier(b"baz"),
-            Token::LeftRoundBracket,
-            Token::BoolLiteral(true),
-            Token::RightRoundBracket,
-            Token::SemiColon,
-            Token::RightCurlyBracket,
-            Token::Else,
-            Token::LeftCurlyBracket,
-            Token::Identifier(b"bar"),
-            Token::LeftRoundBracket,
-            Token::BoolLiteral(false),
-            Token::RightRoundBracket,
-            Token::SemiColon,
-            Token::RightCurlyBracket,
-            Token::Return,
-            Token::HexIntLiteral(512),
-            Token::SemiColon,
-            Token::EOF,
-        ];
+    fn compare(source: &[u8], expected_tokens: &[Token]) {
         let mut buffer = &source[..];
-        for expected_token in expected_tokens.iter() {
-            let (token, remainder) = Lexer::lex_tokens(buffer).expect("Error parsing tokens");
+        for (idx, expected_token) in expected_tokens.iter().enumerate() {
+            let (token, remainder) = Lexer::lex_tokens(buffer).expect(&format!(
+                "Error parsing tokens: expected {:?} in {:?}",
+                expected_token, buffer
+            ));
             buffer = remainder;
-            assert_eq!(token, *expected_token);
+            if token != *expected_token {
+                panic!(
+                    "Token {} is {:?}, but expected {:?}",
+                    idx, token, *expected_token
+                );
+            }
         }
         assert_eq!(buffer.len(), 0);
 
@@ -503,4 +657,109 @@ return 0x200;
         let tokens = tokens.unwrap();
         assert_eq!(&tokens[..], &expected_tokens[..]);
     }
+
+    #[test]
+    fn old_fashioned() {
+        let source = br#"10 X%=0
+20 PRINT "HELLO, WORLD"
+30 GOSUB 1000
+40 GOTO 10
+1000 X%=X%+1
+1010 RETURN
+        "#;
+        let expected_tokens = [
+            Token::DecimalIntLiteral(10),
+            Token::IntegerIdentifier(b"X"),
+            Token::Assign,
+            Token::DecimalIntLiteral(0),
+            Token::NewLine,
+            Token::DecimalIntLiteral(20),
+            Token::Print,
+            Token::StringLiteral(b"HELLO, WORLD"),
+            Token::NewLine,
+            Token::DecimalIntLiteral(30),
+            Token::Gosub,
+            Token::DecimalIntLiteral(1000),
+            Token::NewLine,
+            Token::DecimalIntLiteral(40),
+            Token::Goto,
+            Token::DecimalIntLiteral(10),
+            Token::NewLine,
+            Token::DecimalIntLiteral(1000),
+            Token::IntegerIdentifier(b"X"),
+            Token::Assign,
+            Token::IntegerIdentifier(b"X"),
+            Token::Plus,
+            Token::DecimalIntLiteral(1),
+            Token::NewLine,
+            Token::DecimalIntLiteral(1010),
+            Token::Return,
+            Token::NewLine,
+            Token::EOF,
+        ];
+        compare(source, &expected_tokens);
+    }
+
+    #[test]
+    fn complicated_source() {
+        let source = br#"x = 123
+Dim x as Integer
+y = foo(x)
+input A$
+if y > x then
+    baz(true)
+else
+    bar(false)
+endif
+return 0x200
+        "#;
+        let expected_tokens = [
+            Token::Identifier(b"x"),
+            Token::Assign,
+            Token::DecimalIntLiteral(123),
+            Token::NewLine,
+            Token::Dim,
+            Token::Identifier(b"x"),
+            Token::As,
+            Token::Integer,
+            Token::NewLine,
+            Token::Identifier(b"y"),
+            Token::Assign,
+            Token::Identifier(b"foo"),
+            Token::LeftRoundBracket,
+            Token::Identifier(b"x"),
+            Token::RightRoundBracket,
+            Token::NewLine,
+            Token::Input,
+            Token::StringIdentifier(b"A"),
+            Token::NewLine,
+            Token::If,
+            Token::Identifier(b"y"),
+            Token::GreaterThan,
+            Token::Identifier(b"x"),
+            Token::Then,
+            Token::NewLine,
+            Token::Identifier(b"baz"),
+            Token::LeftRoundBracket,
+            Token::BoolLiteral(true),
+            Token::RightRoundBracket,
+            Token::NewLine,
+            Token::Else,
+            Token::NewLine,
+            Token::Identifier(b"bar"),
+            Token::LeftRoundBracket,
+            Token::BoolLiteral(false),
+            Token::RightRoundBracket,
+            Token::NewLine,
+            Token::EndIf,
+            Token::NewLine,
+            Token::Return,
+            Token::HexIntLiteral(0x200),
+            Token::NewLine,
+            Token::EOF,
+        ];
+        compare(source, &expected_tokens);
+    }
 }
+
+// End of file
