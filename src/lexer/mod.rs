@@ -27,12 +27,12 @@ impl<'a> ::core::fmt::Debug for Error<'a> {
         match self {
             Error::SyntaxError(e) => {
                 write!(fmt, "SyntaxError at \"")?;
-                display_ascii_string(&e[0..e.len().max(20)], fmt)?;
+                display_ascii_string(e, fmt)?;
                 write!(fmt, "\"")
             }
             Error::BadNumber(e) => {
                 write!(fmt, "BadNumber at \"")?;
-                display_ascii_string(&e[0..e.len().max(20)], fmt)?;
+                display_ascii_string(e, fmt)?;
                 write!(fmt, "\"")
             }
         }
@@ -520,7 +520,12 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         if check_case_insensitive(word.0, b"width") {
             return Some(Token::Width);
         }
-    match word.0.iter().next() {
+    let mut i = word.0.iter();
+    let mut first = i.next();
+    while let Some(b'_') = first {
+        first = i.next();
+    }
+    match first {
         Some(b'0'...b'9') => None,
         _ => {
             // Identifiers can't have these special characters
@@ -716,9 +721,47 @@ named!(parse_token<CompleteByteSlice, Token>,
 
 /// Like f64::from_str but ignores underscores.
 fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'a>> {
-    use ::core::str::FromStr;
-    let s = ::core::str::from_utf8(input.0).map_err(|_| Error::BadNumber(input.0))?;
-    f64::from_str(s).map_err(|_| Error::BadNumber(input.0))
+    let mut iresult = 0i64;
+    let mut result = 0f64;
+    let mut valid = false;
+    let mut seen_dot = false;
+    let mut frac = 1f64;
+
+    for ch in input.0.iter() {
+        match ch {
+            b'_' => {
+                // ignore underscores except at the start
+                if !valid {
+                    return Err(Error::BadNumber(input.0));
+                }
+            }
+            b'.' => {
+                if !valid {
+                    return Err(Error::BadNumber(input.0));
+                }
+                seen_dot = true;
+                result = iresult as f64;
+            }
+            _ => {
+                if seen_dot {
+                    frac = frac / 10.0;
+                    let digit = (*ch as char).to_digit(10).ok_or(Error::BadNumber(input.0))? as f64;
+                    result += digit * frac;
+                } else {
+                    iresult *= i64::from(10);
+                    iresult += (*ch as char)
+                        .to_digit(10)
+                        .ok_or(Error::BadNumber(input.0))? as i64;
+                }
+            }
+        }
+        valid = true;
+    }
+    if valid && seen_dot {
+        Ok(result)
+    } else {
+        Err(Error::BadNumber(input.0))
+    }
 }
 
 /// Like i64::from_str_radix but ignores underscores.
@@ -795,9 +838,26 @@ mod test {
     }
 
     #[test]
+    fn float_literal() {
+        assert_eq!(
+            Lexer::lex_tokens(&b"1.0"[..]),
+            Ok((Token::DecimalFloatLiteral(1.0), &b""[..]))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(&b"1_000.0"[..]),
+            Ok((Token::DecimalFloatLiteral(1_000.0), &b""[..]))
+        );
+        assert!(Lexer::lex_tokens(&b"_1_000.0"[..]).is_err());
+    }
+
+    #[test]
     fn int_literal() {
         assert_eq!(
             Lexer::lex_tokens(&b"123"[..]),
+            Ok((Token::DecimalIntLiteral(123), &b""[..]))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(&b"1_23"[..]),
             Ok((Token::DecimalIntLiteral(123), &b""[..]))
         );
         assert_eq!(
@@ -814,6 +874,10 @@ mod test {
         );
         assert_eq!(
             Lexer::lex_tokens(&b"0x100"[..]),
+            Ok((Token::HexIntLiteral(256), &b""[..]))
+        );
+        assert_eq!(
+            Lexer::lex_tokens(&b"0x1_00"[..]),
             Ok((Token::HexIntLiteral(256), &b""[..]))
         );
         assert_eq!(
@@ -868,7 +932,9 @@ mod test {
         check_keyword(b"Count", Token::Count);
         check_keyword(b"Data", Token::Data);
         check_keyword(b"1.0", Token::DecimalFloatLiteral(1.0));
+        check_keyword(b"1_000.0", Token::DecimalFloatLiteral(1_000.0));
         check_keyword(b"123", Token::DecimalIntLiteral(123));
+        check_keyword(b"1_000", Token::DecimalIntLiteral(1_000));
         check_keyword(b"Def", Token::Def);
         check_keyword(b"Deg", Token::Deg);
         check_keyword(b"Dim", Token::Dim);
@@ -901,6 +967,7 @@ mod test {
         check_keyword(b">", Token::GreaterThan);
         check_keyword(b">=", Token::GreaterThanEqual);
         check_keyword(b"0x100", Token::HexIntLiteral(0x100));
+        check_keyword(b"0x1_00", Token::HexIntLiteral(0x100));
         check_keyword(b"X", Token::Identifier(ByteString(b"X")));
         check_keyword(b"If", Token::If);
         check_keyword(b"InKey", Token::InKey);

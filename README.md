@@ -1,6 +1,6 @@
 # Monotronian
 
-An interpreted programming language for the [Monotron https://github.com/thejpster/monotron].
+An interpreted programming language for the [Monotron](https://github.com/thejpster/monotron).
 
 ## What is Monotronian
 
@@ -128,9 +128,9 @@ All variables declared with `DIM` at the top-level of the program, as well as al
 
 ## Numeric formats.
 
-Integers are 32-bit signed. Long integers are 64-bit signed. Real values are 64-bit doubles. Strings are either 8-bit or UTF-8 as a compile option. Be careful with functions like `LEFT$` in UTF-8 mode, as they count in bytes not characters.
+Integers are 32-bit signed. Long integers are 64-bit signed. Real values are 64-bit doubles. Strings are 8-bit (maybe with UTF-8 as a compile option at a later date).
 
-Integers can be expressed in decimal (`123`), hex (`0x123`), octal (`0o777`) or binary (`0b111`). Real numbers can be expressed in decimal (`123.456`) or scientific notation (`3.0E+10`). Underscores are allowed within the digits except in the first position (`1_000_000`).
+Integers can be expressed in decimal (`123`) or hex (`0x123`). Real numbers can be expressed in decimal (`123.456`). Underscores are allowed within the digits except in the first position (`1_000_000` is OK, `_1000.0` is not).
 
 ## Graphics extensions
 
