@@ -115,9 +115,6 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         if check_case_insensitive(word.0, b"true") {
             return Some(Token::BoolLiteral(true));
         }
-        if check_case_insensitive(word.0, b"false") {
-            return Some(Token::BoolLiteral(false));
-        }
         if check_case_insensitive(word.0, b"bput#") {
             return Some(Token::BPutHash);
         }
@@ -187,6 +184,9 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         if check_case_insensitive(word.0, b"draw") {
             return Some(Token::Draw);
         }
+        if check_case_insensitive(word.0, b"edit") {
+            return Some(Token::Edit);
+        }
         if check_case_insensitive(word.0, b"ellipse") {
             return Some(Token::Ellipse);
         }
@@ -201,6 +201,9 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         }
         if check_case_insensitive(word.0, b"endcase") {
             return Some(Token::EndCase);
+        }
+        if check_case_insensitive(word.0, b"endfn") {
+            return Some(Token::EndFunc);
         }
         if check_case_insensitive(word.0, b"endif") {
             return Some(Token::EndIf);
@@ -229,11 +232,17 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         if check_case_insensitive(word.0, b"ext") {
             return Some(Token::Ext);
         }
+        if check_case_insensitive(word.0, b"false") {
+            return Some(Token::BoolLiteral(false));
+        }
         if check_case_insensitive(word.0, b"fill") {
             return Some(Token::Fill);
         }
         if check_case_insensitive(word.0, b"for") {
             return Some(Token::For);
+        }
+        if check_case_insensitive(word.0, b"fn") {
+            return Some(Token::Func);
         }
         if check_case_insensitive(word.0, b"gcol") {
             return Some(Token::GCol);
@@ -267,6 +276,9 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         }
         if check_case_insensitive(word.0, b"input#") {
             return Some(Token::InputHash);
+        }
+        if check_case_insensitive(word.0, b"insert") {
+            return Some(Token::Insert);
         }
         if check_case_insensitive(word.0, b"instr") {
             return Some(Token::InStr);
@@ -862,11 +874,13 @@ mod test {
         check_keyword(b"Dim", Token::Dim);
         check_keyword(b"Div", Token::Div);
         check_keyword(b"Draw", Token::Draw);
+        check_keyword(b"Edit", Token::Edit);
         check_keyword(b"Ellipse", Token::Ellipse);
         check_keyword(b"Else", Token::Else);
         check_keyword(b"ElseIf", Token::ElseIf);
         check_keyword(b"End", Token::End);
         check_keyword(b"EndCase", Token::EndCase);
+        check_keyword(b"EndFn", Token::EndFunc);
         check_keyword(b"EndIf", Token::EndIf);
         check_keyword(b"EndProc", Token::EndProc);
         check_keyword(b"EndWhile", Token::EndWhile);
@@ -893,6 +907,8 @@ mod test {
         check_keyword(b"Inkey$", Token::InkeyDollar);
         check_keyword(b"Input", Token::Input);
         check_keyword(b"Input#", Token::InputHash);
+        check_keyword(b"Insert", Token::Insert);
+        check_keyword(b"Fn", Token::Func);
         check_keyword(b"InStr", Token::InStr);
         check_keyword(b"Int", Token::Int);
         check_keyword(b"Integer", Token::Integer);
