@@ -1,27 +1,23 @@
-//! # Lexer/Interpreter for Monotronian
+//! # Monotronian
 //!
-//! The lexer is loosely based on monkey-rust.
-//! The syntax is loosely based on monkey (and it's a bit C like).
-//!
-//! Grammar:
-//!
-//! function := fn `name`(arguments) { expression }
-//! arguments := nil | identifier arguments
-//! expression := if | while | for |
+//! A BASIC-alike language for Monotron. See README.md.
 
-#![cfg_attr(feature = "no_std", no_std)]
-#![cfg(not(feature = "no_std"))]
-#![feature(alloc)]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), feature(alloc))]
+
+#[cfg(test)]
+use std as core;
 
 #[macro_use]
 extern crate nom;
+
+#[cfg(not(test))]
 extern crate alloc;
+#[cfg(not(test))]
+use alloc::prelude::*;
 
 pub mod lexer;
 pub mod parser;
-
-#[cfg(not(feature = "no_std"))]
-use std as core;
 
 pub struct Parser {
     _state: State,

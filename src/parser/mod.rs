@@ -9,6 +9,9 @@
 //!
 //! For this to work, I'm going to need to write the grammar formally.
 
+#[cfg(not(test))]
+use alloc::prelude::*;
+
 use super::display_ascii_string;
 use core::fmt;
 use lexer::Token;
