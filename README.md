@@ -60,7 +60,7 @@ The `auto` command activates automatic line numbering. Now what we type is added
  2 limit = 100
  3 target = rnd(limit)
  4 print "I have picked a number from 1 TO ", limit
- 5 loop
+ 5 while true
  6   input "ENTER YOUR GUESS:", guess
  7   if guess > target then print "Too high! Try again."
  8   if guess < target then print "Too low! Try again."
@@ -68,7 +68,7 @@ The `auto` command activates automatic line numbering. Now what we type is added
 10     print "That's right! Well done."
 11     end
 12   endif
-13 endloop
+13 endwhile
 >
 ```
 
@@ -89,7 +89,7 @@ We can also insert lines:
  2 limit = 100
  3 target = rnd(limit)
  4 print "I have picked a number from 1 TO ", limit
- 5 loop
+ 5 while true
  6   input "ENTER YOUR GUESS:", guess
  7   if guess > target then print "Too high! Try again."
  8   if guess < target then print "Too low! Try again."
@@ -98,7 +98,7 @@ We can also insert lines:
 11     print "Please do play again."
 12     end
 13   endif
-14 endloop
+14 endwhile
 ```
 
 Inserting lines causes subsequent lines to be automatically renumbered. You cannot jump to an automatically numbered line with `GOTO` or `GOSUB` - instead you must use functions. When listing code that has been auto-numbered, it is indented automatically, with two spaces per indent level.
