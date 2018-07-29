@@ -7,11 +7,12 @@
 //! There's also no concept of declaring a function because each function is
 //! handled as a stand-alone unit to save memory.
 
-use nom::types::CompleteByteSlice;
-
-pub use self::token::Token;
-use super::display_ascii_string;
 pub mod token;
+
+use nom::types::CompleteByteSlice;
+pub use self::token::Token;
+pub use self::token::ByteString;
+use super::display_ascii_string;
 
 pub struct Lexer;
 
@@ -87,143 +88,450 @@ fn check_case_insensitive(token: &[u8], compare_to: &[u8]) -> bool {
 
 /// Check if a string is a reserved word or an identifier.
 fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
-    if check_case_insensitive(word.0, b"as") {
-        return Some(Token::As);
-    }
-    if check_case_insensitive(word.0, b"break") {
-        return Some(Token::Break);
-    }
-    if check_case_insensitive(word.0, b"dim") {
-        return Some(Token::Dim);
-    }
-    if check_case_insensitive(word.0, b"else") {
-        return Some(Token::Else);
-    }
-    if check_case_insensitive(word.0, b"elseif") {
-        return Some(Token::ElseIf);
-    }
-    if check_case_insensitive(word.0, b"end") {
-        return Some(Token::End);
-    }
-    if check_case_insensitive(word.0, b"endif") {
-        return Some(Token::EndIf);
-    }
-    if check_case_insensitive(word.0, b"false") {
-        return Some(Token::BoolLiteral(false));
-    }
-    if check_case_insensitive(word.0, b"for") {
-        return Some(Token::For);
-    }
-    if check_case_insensitive(word.0, b"gosub") {
-        return Some(Token::Gosub);
-    }
-    if check_case_insensitive(word.0, b"goto") {
-        return Some(Token::Goto);
-    }
-    if check_case_insensitive(word.0, b"if") {
-        return Some(Token::If);
-    }
-    if check_case_insensitive(word.0, b"input") {
-        return Some(Token::Input);
-    }
-    if check_case_insensitive(word.0, b"integer") {
-        return Some(Token::Integer);
-    }
-    if check_case_insensitive(word.0, b"let") {
-        return Some(Token::Let);
-    }
-    if check_case_insensitive(word.0, b"next") {
-        return Some(Token::Next);
-    }
-    if check_case_insensitive(word.0, b"print") {
-        return Some(Token::Print);
-    }
-    if check_case_insensitive(word.0, b"return") {
-        return Some(Token::Return);
-    }
-    if check_case_insensitive(word.0, b"then") {
-        return Some(Token::Then);
-    }
-    if check_case_insensitive(word.0, b"true") {
-        return Some(Token::BoolLiteral(true));
-    }
+        if check_case_insensitive(word.0, b"abs") {
+            return Some(Token::Abs);
+        }
+        if check_case_insensitive(word.0, b"acs") {
+            return Some(Token::Acs);
+        }
+        if check_case_insensitive(word.0, b"as") {
+            return Some(Token::As);
+        }
+        if check_case_insensitive(word.0, b"asc") {
+            return Some(Token::Asc);
+        }
+        if check_case_insensitive(word.0, b"asn") {
+            return Some(Token::Asn);
+        }
+        if check_case_insensitive(word.0, b"atn") {
+            return Some(Token::Atn);
+        }
+        if check_case_insensitive(word.0, b"beep") {
+            return Some(Token::Beep);
+        }
+        if check_case_insensitive(word.0, b"bget#") {
+            return Some(Token::BGetHash);
+        }
+        if check_case_insensitive(word.0, b"true") {
+            return Some(Token::BoolLiteral(true));
+        }
+        if check_case_insensitive(word.0, b"false") {
+            return Some(Token::BoolLiteral(false));
+        }
+        if check_case_insensitive(word.0, b"bput#") {
+            return Some(Token::BPutHash);
+        }
+        if check_case_insensitive(word.0, b"break") {
+            return Some(Token::Break);
+        }
+        if check_case_insensitive(word.0, b"by") {
+            return Some(Token::By);
+        }
+        if check_case_insensitive(word.0, b"call") {
+            return Some(Token::Call);
+        }
+        if check_case_insensitive(word.0, b"caret") {
+            return Some(Token::Caret);
+        }
+        if check_case_insensitive(word.0, b"case") {
+            return Some(Token::Case);
+        }
+        if check_case_insensitive(word.0, b"chr$") {
+            return Some(Token::ChrDollar);
+        }
+        if check_case_insensitive(word.0, b"circle") {
+            return Some(Token::Circle);
+        }
+        if check_case_insensitive(word.0, b"clear") {
+            return Some(Token::Clear);
+        }
+        if check_case_insensitive(word.0, b"clg") {
+            return Some(Token::Clg);
+        }
+        if check_case_insensitive(word.0, b"close") {
+            return Some(Token::Close);
+        }
+        if check_case_insensitive(word.0, b"cls") {
+            return Some(Token::Cls);
+        }
+        if check_case_insensitive(word.0, b"colon") {
+            return Some(Token::Colon);
+        }
+        if check_case_insensitive(word.0, b"colour") {
+            return Some(Token::Colour);
+        }
+        if check_case_insensitive(word.0, b"comma") {
+            return Some(Token::Comma);
+        }
+        if check_case_insensitive(word.0, b"cos") {
+            return Some(Token::Cos);
+        }
+        if check_case_insensitive(word.0, b"count") {
+            return Some(Token::Count);
+        }
+        if check_case_insensitive(word.0, b"data") {
+            return Some(Token::Data);
+        }
+        if check_case_insensitive(word.0, b"def") {
+            return Some(Token::Def);
+        }
+        if check_case_insensitive(word.0, b"deg") {
+            return Some(Token::Deg);
+        }
+        if check_case_insensitive(word.0, b"dim") {
+            return Some(Token::Dim);
+        }
+        if check_case_insensitive(word.0, b"div") {
+            return Some(Token::Div);
+        }
+        if check_case_insensitive(word.0, b"draw") {
+            return Some(Token::Draw);
+        }
+        if check_case_insensitive(word.0, b"ellipse") {
+            return Some(Token::Ellipse);
+        }
+        if check_case_insensitive(word.0, b"else") {
+            return Some(Token::Else);
+        }
+        if check_case_insensitive(word.0, b"elseif") {
+            return Some(Token::ElseIf);
+        }
+        if check_case_insensitive(word.0, b"end") {
+            return Some(Token::End);
+        }
+        if check_case_insensitive(word.0, b"endcase") {
+            return Some(Token::EndCase);
+        }
+        if check_case_insensitive(word.0, b"endif") {
+            return Some(Token::EndIf);
+        }
+        if check_case_insensitive(word.0, b"endproc") {
+            return Some(Token::EndProc);
+        }
+        if check_case_insensitive(word.0, b"endwhile") {
+            return Some(Token::EndWhile);
+        }
+        if check_case_insensitive(word.0, b"eof#") {
+            return Some(Token::EofHash);
+        }
+        if check_case_insensitive(word.0, b"eor") {
+            return Some(Token::Eor);
+        }
+        if check_case_insensitive(word.0, b"erl") {
+            return Some(Token::Erl);
+        }
+        if check_case_insensitive(word.0, b"error") {
+            return Some(Token::Error);
+        }
+        if check_case_insensitive(word.0, b"exp") {
+            return Some(Token::Exp);
+        }
+        if check_case_insensitive(word.0, b"ext") {
+            return Some(Token::Ext);
+        }
+        if check_case_insensitive(word.0, b"fill") {
+            return Some(Token::Fill);
+        }
+        if check_case_insensitive(word.0, b"for") {
+            return Some(Token::For);
+        }
+        if check_case_insensitive(word.0, b"gcol") {
+            return Some(Token::GCol);
+        }
+        if check_case_insensitive(word.0, b"get") {
+            return Some(Token::Get);
+        }
+        if check_case_insensitive(word.0, b"get$") {
+            return Some(Token::GetDollar);
+        }
+        if check_case_insensitive(word.0, b"get#") {
+            return Some(Token::GetHash);
+        }
+        if check_case_insensitive(word.0, b"gosub") {
+            return Some(Token::Gosub);
+        }
+        if check_case_insensitive(word.0, b"goto") {
+            return Some(Token::Goto);
+        }
+        if check_case_insensitive(word.0, b"if") {
+            return Some(Token::If);
+        }
+        if check_case_insensitive(word.0, b"inkey") {
+            return Some(Token::InKey);
+        }
+        if check_case_insensitive(word.0, b"inkey$") {
+            return Some(Token::InkeyDollar);
+        }
+        if check_case_insensitive(word.0, b"input") {
+            return Some(Token::Input);
+        }
+        if check_case_insensitive(word.0, b"input#") {
+            return Some(Token::InputHash);
+        }
+        if check_case_insensitive(word.0, b"instr") {
+            return Some(Token::InStr);
+        }
+        if check_case_insensitive(word.0, b"int") {
+            return Some(Token::Int);
+        }
+        if check_case_insensitive(word.0, b"integer") {
+            return Some(Token::Integer);
+        }
+        if check_case_insensitive(word.0, b"left$") {
+            return Some(Token::LeftDollar);
+        }
+        if check_case_insensitive(word.0, b"len") {
+            return Some(Token::Len);
+        }
+        if check_case_insensitive(word.0, b"let") {
+            return Some(Token::Let);
+        }
+        if check_case_insensitive(word.0, b"line") {
+            return Some(Token::Line);
+        }
+        if check_case_insensitive(word.0, b"list") {
+            return Some(Token::List);
+        }
+        if check_case_insensitive(word.0, b"ln") {
+            return Some(Token::Ln);
+        }
+        if check_case_insensitive(word.0, b"load") {
+            return Some(Token::Load);
+        }
+        if check_case_insensitive(word.0, b"local") {
+            return Some(Token::Local);
+        }
+        if check_case_insensitive(word.0, b"log") {
+            return Some(Token::Log);
+        }
+        if check_case_insensitive(word.0, b"mid$") {
+            return Some(Token::MidDollar);
+        }
+        if check_case_insensitive(word.0, b"minus") {
+            return Some(Token::Minus);
+        }
+        if check_case_insensitive(word.0, b"mod") {
+            return Some(Token::Mod);
+        }
+        if check_case_insensitive(word.0, b"mode") {
+            return Some(Token::Mode);
+        }
+        if check_case_insensitive(word.0, b"move") {
+            return Some(Token::Move);
+        }
+        if check_case_insensitive(word.0, b"new") {
+            return Some(Token::New);
+        }
+        if check_case_insensitive(word.0, b"next") {
+            return Some(Token::Next);
+        }
+        if check_case_insensitive(word.0, b"not") {
+            return Some(Token::Not);
+        }
+        if check_case_insensitive(word.0, b"notequal") {
+            return Some(Token::NotEqual);
+        }
+        if check_case_insensitive(word.0, b"of") {
+            return Some(Token::Of);
+        }
+        if check_case_insensitive(word.0, b"off") {
+            return Some(Token::Off);
+        }
+        if check_case_insensitive(word.0, b"on") {
+            return Some(Token::On);
+        }
+        if check_case_insensitive(word.0, b"open") {
+            return Some(Token::Open);
+        }
+        if check_case_insensitive(word.0, b"or") {
+            return Some(Token::Or);
+        }
+        if check_case_insensitive(word.0, b"origin") {
+            return Some(Token::Origin);
+        }
+        if check_case_insensitive(word.0, b"otherwise") {
+            return Some(Token::Otherwise);
+        }
+        if check_case_insensitive(word.0, b"plus") {
+            return Some(Token::Plus);
+        }
+        if check_case_insensitive(word.0, b"point") {
+            return Some(Token::Point);
+        }
+        if check_case_insensitive(word.0, b"poke") {
+            return Some(Token::Poke);
+        }
+        if check_case_insensitive(word.0, b"pos") {
+            return Some(Token::Pos);
+        }
+        if check_case_insensitive(word.0, b"print") {
+            return Some(Token::Print);
+        }
+        if check_case_insensitive(word.0, b"print#") {
+            return Some(Token::PrintHash);
+        }
+        if check_case_insensitive(word.0, b"private") {
+            return Some(Token::Private);
+        }
+        if check_case_insensitive(word.0, b"proc") {
+            return Some(Token::Proc);
+        }
+        if check_case_insensitive(word.0, b"quit") {
+            return Some(Token::Quit);
+        }
+        if check_case_insensitive(word.0, b"rad") {
+            return Some(Token::Rad);
+        }
+        if check_case_insensitive(word.0, b"read") {
+            return Some(Token::Read);
+        }
+        if check_case_insensitive(word.0, b"rectangle") {
+            return Some(Token::Rectangle);
+        }
+        if check_case_insensitive(word.0, b"rem") {
+            return Some(Token::Rem);
+        }
+        if check_case_insensitive(word.0, b"repeat") {
+            return Some(Token::Repeat);
+        }
+        if check_case_insensitive(word.0, b"restore") {
+            return Some(Token::Restore);
+        }
+        if check_case_insensitive(word.0, b"return") {
+            return Some(Token::Return);
+        }
+        if check_case_insensitive(word.0, b"right$") {
+            return Some(Token::RightDollar);
+        }
+        if check_case_insensitive(word.0, b"rnd") {
+            return Some(Token::Rnd);
+        }
+        if check_case_insensitive(word.0, b"run") {
+            return Some(Token::Run);
+        }
+        if check_case_insensitive(word.0, b"save") {
+            return Some(Token::Save);
+        }
+        if check_case_insensitive(word.0, b"semicolon") {
+            return Some(Token::SemiColon);
+        }
+        if check_case_insensitive(word.0, b"sgn") {
+            return Some(Token::Sgn);
+        }
+        if check_case_insensitive(word.0, b"sin") {
+            return Some(Token::Sin);
+        }
+        if check_case_insensitive(word.0, b"slash") {
+            return Some(Token::Slash);
+        }
+        if check_case_insensitive(word.0, b"sound") {
+            return Some(Token::Sound);
+        }
+        if check_case_insensitive(word.0, b"spc") {
+            return Some(Token::Spc);
+        }
+        if check_case_insensitive(word.0, b"sqr") {
+            return Some(Token::Sqr);
+        }
+        if check_case_insensitive(word.0, b"star") {
+            return Some(Token::Star);
+        }
+        if check_case_insensitive(word.0, b"step") {
+            return Some(Token::Step);
+        }
+        if check_case_insensitive(word.0, b"stop") {
+            return Some(Token::Stop);
+        }
+        if check_case_insensitive(word.0, b"str$") {
+            return Some(Token::StrDollar);
+        }
+        if check_case_insensitive(word.0, b"string$") {
+            return Some(Token::StringDollar);
+        }
+        if check_case_insensitive(word.0, b"stroke") {
+            return Some(Token::Stroke);
+        }
+        if check_case_insensitive(word.0, b"sum") {
+            return Some(Token::Sum);
+        }
+        if check_case_insensitive(word.0, b"swap") {
+            return Some(Token::Swap);
+        }
+        if check_case_insensitive(word.0, b"swi") {
+            return Some(Token::Swi);
+        }
+        if check_case_insensitive(word.0, b"sys") {
+            return Some(Token::Sys);
+        }
+        if check_case_insensitive(word.0, b"tab") {
+            return Some(Token::Tab);
+        }
+        if check_case_insensitive(word.0, b"tan") {
+            return Some(Token::Tan);
+        }
+        if check_case_insensitive(word.0, b"then") {
+            return Some(Token::Then);
+        }
+        if check_case_insensitive(word.0, b"time") {
+            return Some(Token::Time);
+        }
+        if check_case_insensitive(word.0, b"tint") {
+            return Some(Token::Tint);
+        }
+        if check_case_insensitive(word.0, b"to") {
+            return Some(Token::To);
+        }
+        if check_case_insensitive(word.0, b"trace") {
+            return Some(Token::Trace);
+        }
+        if check_case_insensitive(word.0, b"until") {
+            return Some(Token::Until);
+        }
+        if check_case_insensitive(word.0, b"usr") {
+            return Some(Token::Usr);
+        }
+        if check_case_insensitive(word.0, b"val") {
+            return Some(Token::Val);
+        }
+        if check_case_insensitive(word.0, b"verify") {
+            return Some(Token::Verify);
+        }
+        if check_case_insensitive(word.0, b"vpos") {
+            return Some(Token::VPos);
+        }
+        if check_case_insensitive(word.0, b"wait") {
+            return Some(Token::Wait);
+        }
+        if check_case_insensitive(word.0, b"while") {
+            return Some(Token::While);
+        }
+        if check_case_insensitive(word.0, b"width") {
+            return Some(Token::Width);
+        }
     match word.0.iter().next() {
         Some(b'0'...b'9') => None,
-        _ => Some(Token::Identifier(word.0)),
+        _ => {
+            // Identifiers can't have these special characters
+            if word.0.iter().any(|x| *x == b'$' || *x == b'#') {
+                None
+            } else {
+                Some(Token::Identifier(ByteString(word.0)))
+            }
+        }
     }
 }
 
 /// Check if a string is a reserved word or an identifier.
 fn parse_reserved_inverse(word: CompleteByteSlice) -> Option<&[u8]> {
-    if check_case_insensitive(word.0, b"as") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"break") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"dim") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"else") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"elseif") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"end") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"endif") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"false") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"for") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"gosub") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"goto") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"if") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"input") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"integer") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"let") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"next") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"print") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"return") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"then") {
-        return None;
-    }
-    if check_case_insensitive(word.0, b"true") {
-        return None;
-    }
-    match word.0.iter().next() {
-        Some(b'0'...b'9') => None,
-        _ => Some(word.0),
+    match parse_reserved(word) {
+        Some(Token::Identifier(x)) => Some(x.0),
+        _ => None
     }
 }
 
 named!(keyword_or_identifier<CompleteByteSlice, Token>,
     do_parse!(
-        id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), parse_reserved) >>
+        id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_' || c == b'$' || c == b'#'), parse_reserved) >>
         (id)
     )
 );
@@ -233,7 +541,7 @@ named!(
     do_parse!(
         id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), parse_reserved_inverse) >>
         tag!("$") >>
-        (Token::StringIdentifier(id))
+        (Token::StringIdentifier(ByteString(id)))
     )
 );
 
@@ -242,14 +550,10 @@ named!(
     do_parse!(
         id: map_opt!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), parse_reserved_inverse) >>
         tag!("%") >>
-        (Token::IntegerIdentifier(id))
+        (Token::IntegerIdentifier(ByteString(id)))
     )
 );
 
-named!(
-    op_equal<CompleteByteSlice, Token>,
-    do_parse!(tag!("==") >> (Token::Equal))
-);
 named!(
     op_assign<CompleteByteSlice, Token>,
     do_parse!(tag!("=") >> (Token::Assign))
@@ -261,10 +565,6 @@ named!(
 named!(
     op_minus<CompleteByteSlice, Token>,
     do_parse!(tag!("-") >> (Token::Minus))
-);
-named!(
-    op_exclamationmark<CompleteByteSlice, Token>,
-    do_parse!(tag!("!") >> (Token::ExclamationMark))
 );
 named!(
     op_slash<CompleteByteSlice, Token>,
@@ -318,11 +618,9 @@ named!(
 named!(
     op<CompleteByteSlice, Token>,
     alt!(
-        op_equal |
         op_assign |
         op_plus |
         op_minus |
-        op_exclamationmark |
         op_slash |
         op_star |
         op_notequal |
@@ -357,10 +655,19 @@ named!(
 );
 
 named!(
+    dec_float_literal<CompleteByteSlice, Token>,
+    do_parse!(
+        neg: opt!(tag!("-")) >>
+        num: map_res!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_' || c == b'.'), |s| convert_float_digits(s)) >>
+        (Token::DecimalFloatLiteral(if neg.is_some() { -num } else { num }))
+    )
+);
+
+named!(
     dec_literal<CompleteByteSlice, Token>,
     do_parse!(
         neg: opt!(tag!("-")) >>
-        num: map_res!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_'), |s| convert_digits(s, 10)) >>
+        num: map_res!(take_while1!(|c: u8| is_alphanumeric(c) || c == b'_' || c == b'.'), |s| convert_digits(s, 10)) >>
         (Token::DecimalIntLiteral(if neg.is_some() { -num } else { num }))
     )
 );
@@ -376,54 +683,31 @@ named!(
     string_literal<CompleteByteSlice, Token>,
     do_parse!(
         s: delimited!(tag!("\""), string_content, tag!("\"")) >>
-        (Token::StringLiteral(s.0))
+        (Token::StringLiteral(ByteString(s.0)))
     )
 );
-
-// fn string_literal(input: CompleteByteSlice) -> nom::IResult<CompleteByteSlice, Token, u32> {
-//     let mut bytes = input.0.iter();
-//     let mut byte_count: usize = 0;
-//     let mut escaped = false;
-//     if let Some(b'"') = bytes.next() {
-//         loop {
-//             match bytes.next() {
-//                 Some(b'\\') => {
-//                     escaped = true;
-//                     byte_count += 1;
-//                 }
-//                 Some(b'"') if !escaped => {
-//                     break
-//                 }
-//                 Some(_c) => {
-//                     escaped = false;
-//                     byte_count += 1;
-//                 }
-//                 None => {
-//                     // Ran out of text
-//                     return Err(nom::Err::Error(error_position!(input, nom::ErrorKind::OneOf)));
-//                 }
-//             }
-//         }
-//         let contents = &input.0[1 .. byte_count + 1];
-//         let remainder = &input.0[byte_count + 2 .. input.0.len()];
-//         Ok((CompleteByteSlice(remainder), Token::StringLiteral(contents)))
-//     } else {
-//         Err(nom::Err::Error(error_position!(input, nom::ErrorKind::OneOf)))
-//     }
-// }
 
 named!(parse_token<CompleteByteSlice, Token>,
     alt!(
         new_line |
         hex_literal |
         dec_literal |
+        dec_float_literal |
         string_literal |
         op |
-        string_identifier |
         integer_identifier |
-        keyword_or_identifier
+        keyword_or_identifier |
+        string_identifier
     )
 );
+
+
+/// Like f64::from_str but ignores underscores.
+fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'a>> {
+    use ::core::str::FromStr;
+    let s = ::core::str::from_utf8(input.0).map_err(|_| Error::BadNumber(input.0))?;
+    f64::from_str(s).map_err(|_| Error::BadNumber(input.0))
+}
 
 /// Like i64::from_str_radix but ignores underscores.
 fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, Error<'a>> {
@@ -437,6 +721,9 @@ fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, E
                 if !valid {
                     return Err(Error::BadNumber(input.0));
                 }
+            }
+            b'.' => {
+                return Err(Error::BadNumber(input.0))
             }
             _ => {
                 result *= i64::from(radix);
@@ -527,89 +814,204 @@ mod test {
         );
     }
 
+    fn check_keyword(source: &[u8], token: Token) {
+        let got = Lexer::lex_tokens(source).unwrap();
+        if got.0 != token {
+            panic!("Got {:?}, expected {:?} in {:?}", got, token, ::std::str::from_utf8(source));
+        }
+        if got.1 != &b""[..] {
+            panic!("Got {:?} expected nothing", got.1);
+        }
+    }
+
     #[test]
     fn keywords() {
-        assert_eq!(Lexer::lex_tokens(&b"as"[..]), Ok((Token::As, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"break"[..]),
-            Ok((Token::Break, &b""[..]))
-        );
-        assert_eq!(Lexer::lex_tokens(&b"dim"[..]), Ok((Token::Dim, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"else"[..]), Ok((Token::Else, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"elseif"[..]),
-            Ok((Token::ElseIf, &b""[..]))
-        );
-        assert_eq!(Lexer::lex_tokens(&b"end"[..]), Ok((Token::End, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"endif"[..]),
-            Ok((Token::EndIf, &b""[..]))
-        );
-        assert_eq!(
-            Lexer::lex_tokens(&b"false"[..]),
-            Ok((Token::BoolLiteral(false), &b""[..]))
-        );
-        assert_eq!(Lexer::lex_tokens(&b"for"[..]), Ok((Token::For, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"gosub"[..]),
-            Ok((Token::Gosub, &b""[..]))
-        );
-        assert_eq!(Lexer::lex_tokens(&b"goto"[..]), Ok((Token::Goto, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"if"[..]), Ok((Token::If, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"input"[..]),
-            Ok((Token::Input, &b""[..]))
-        );
-        assert_eq!(
-            Lexer::lex_tokens(&b"integer"[..]),
-            Ok((Token::Integer, &b""[..]))
-        );
-        assert_eq!(Lexer::lex_tokens(&b"let"[..]), Ok((Token::Let, &b""[..])));
-        assert_eq!(Lexer::lex_tokens(&b"next"[..]), Ok((Token::Next, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"print"[..]),
-            Ok((Token::Print, &b""[..]))
-        );
-        assert_eq!(
-            Lexer::lex_tokens(&b"return"[..]),
-            Ok((Token::Return, &b""[..]))
-        );
-        assert_eq!(Lexer::lex_tokens(&b"then"[..]), Ok((Token::Then, &b""[..])));
-        assert_eq!(
-            Lexer::lex_tokens(&b"true"[..]),
-            Ok((Token::BoolLiteral(true), &b""[..]))
-        );
+        check_keyword(b"Abs", Token::Abs);
+        check_keyword(b"Acs", Token::Acs);
+        check_keyword(b"As", Token::As);
+        check_keyword(b"Asc", Token::Asc);
+        check_keyword(b"Asn", Token::Asn);
+        check_keyword(b"=", Token::Assign);
+        check_keyword(b"Atn", Token::Atn);
+        check_keyword(b"Beep", Token::Beep);
+        check_keyword(b"BGet#", Token::BGetHash);
+        check_keyword(b"True", Token::BoolLiteral(true));
+        check_keyword(b"False", Token::BoolLiteral(false));
+        check_keyword(b"BPut#", Token::BPutHash);
+        check_keyword(b"Break", Token::Break);
+        check_keyword(b"By", Token::By);
+        check_keyword(b"Call", Token::Call);
+        check_keyword(b"Caret", Token::Caret);
+        check_keyword(b"Case", Token::Case);
+        check_keyword(b"Chr$", Token::ChrDollar);
+        check_keyword(b"Circle", Token::Circle);
+        check_keyword(b"Clear", Token::Clear);
+        check_keyword(b"Clg", Token::Clg);
+        check_keyword(b"Close", Token::Close);
+        check_keyword(b"Cls", Token::Cls);
+        check_keyword(b"Colon", Token::Colon);
+        check_keyword(b"Colour", Token::Colour);
+        check_keyword(b"Comma", Token::Comma);
+        check_keyword(b"Cos", Token::Cos);
+        check_keyword(b"Count", Token::Count);
+        check_keyword(b"Data", Token::Data);
+        check_keyword(b"1.0", Token::DecimalFloatLiteral(1.0));
+        check_keyword(b"123", Token::DecimalIntLiteral(123));
+        check_keyword(b"Def", Token::Def);
+        check_keyword(b"Deg", Token::Deg);
+        check_keyword(b"Dim", Token::Dim);
+        check_keyword(b"Div", Token::Div);
+        check_keyword(b"Draw", Token::Draw);
+        check_keyword(b"Ellipse", Token::Ellipse);
+        check_keyword(b"Else", Token::Else);
+        check_keyword(b"ElseIf", Token::ElseIf);
+        check_keyword(b"End", Token::End);
+        check_keyword(b"EndCase", Token::EndCase);
+        check_keyword(b"EndIf", Token::EndIf);
+        check_keyword(b"EndProc", Token::EndProc);
+        check_keyword(b"EndWhile", Token::EndWhile);
+        check_keyword(b"EOF#", Token::EofHash);
+        check_keyword(b"Eor", Token::Eor);
+        check_keyword(b"Erl", Token::Erl);
+        check_keyword(b"Error", Token::Error);
+        check_keyword(b"Exp", Token::Exp);
+        check_keyword(b"Ext", Token::Ext);
+        check_keyword(b"Fill", Token::Fill);
+        check_keyword(b"For", Token::For);
+        check_keyword(b"GCol", Token::GCol);
+        check_keyword(b"Get", Token::Get);
+        check_keyword(b"Get$", Token::GetDollar);
+        check_keyword(b"Get#", Token::GetHash);
+        check_keyword(b"Gosub", Token::Gosub);
+        check_keyword(b"Goto", Token::Goto);
+        check_keyword(b">", Token::GreaterThan);
+        check_keyword(b">=", Token::GreaterThanEqual);
+        check_keyword(b"0x100", Token::HexIntLiteral(0x100));
+        check_keyword(b"X", Token::Identifier(ByteString(b"X")));
+        check_keyword(b"If", Token::If);
+        check_keyword(b"InKey", Token::InKey);
+        check_keyword(b"Inkey$", Token::InkeyDollar);
+        check_keyword(b"Input", Token::Input);
+        check_keyword(b"Input#", Token::InputHash);
+        check_keyword(b"InStr", Token::InStr);
+        check_keyword(b"Int", Token::Int);
+        check_keyword(b"Integer", Token::Integer);
+        check_keyword(b"X%", Token::IntegerIdentifier(ByteString(b"X")));
+        check_keyword(b"Left$", Token::LeftDollar);
+        check_keyword(b"(", Token::LeftRoundBracket);
+        check_keyword(b"Len", Token::Len);
+        check_keyword(b"<", Token::LessThan);
+        check_keyword(b"<=", Token::LessThanEqual);
+        check_keyword(b"Let", Token::Let);
+        check_keyword(b"Line", Token::Line);
+        check_keyword(b"List", Token::List);
+        check_keyword(b"Ln", Token::Ln);
+        check_keyword(b"Load", Token::Load);
+        check_keyword(b"Local", Token::Local);
+        check_keyword(b"Log", Token::Log);
+        check_keyword(b"Mid$", Token::MidDollar);
+        check_keyword(b"Minus", Token::Minus);
+        check_keyword(b"Mod", Token::Mod);
+        check_keyword(b"Mode", Token::Mode);
+        check_keyword(b"Move", Token::Move);
+        check_keyword(b"New", Token::New);
+        check_keyword(b"\n", Token::NewLine);
+        check_keyword(b"Next", Token::Next);
+        check_keyword(b"Not", Token::Not);
+        check_keyword(b"NotEqual", Token::NotEqual);
+        check_keyword(b"Of", Token::Of);
+        check_keyword(b"Off", Token::Off);
+        check_keyword(b"On", Token::On);
+        check_keyword(b"Open", Token::Open);
+        check_keyword(b"Or", Token::Or);
+        check_keyword(b"Origin", Token::Origin);
+        check_keyword(b"Otherwise", Token::Otherwise);
+        check_keyword(b"Plus", Token::Plus);
+        check_keyword(b"Point", Token::Point);
+        check_keyword(b"Poke", Token::Poke);
+        check_keyword(b"Pos", Token::Pos);
+        check_keyword(b"Print", Token::Print);
+        check_keyword(b"Print#", Token::PrintHash);
+        check_keyword(b"Private", Token::Private);
+        check_keyword(b"Proc", Token::Proc);
+        check_keyword(b"Quit", Token::Quit);
+        check_keyword(b"Rad", Token::Rad);
+        check_keyword(b"Read", Token::Read);
+        check_keyword(b"Rectangle", Token::Rectangle);
+        check_keyword(b"Rem", Token::Rem);
+        check_keyword(b"Repeat", Token::Repeat);
+        check_keyword(b"Restore", Token::Restore);
+        check_keyword(b"Return", Token::Return);
+        check_keyword(b"Right$", Token::RightDollar);
+        check_keyword(b")", Token::RightRoundBracket);
+        check_keyword(b"Rnd", Token::Rnd);
+        check_keyword(b"Run", Token::Run);
+        check_keyword(b"Save", Token::Save);
+        check_keyword(b"SemiColon", Token::SemiColon);
+        check_keyword(b"Sgn", Token::Sgn);
+        check_keyword(b"Sin", Token::Sin);
+        check_keyword(b"Slash", Token::Slash);
+        check_keyword(b"Sound", Token::Sound);
+        check_keyword(b"Spc", Token::Spc);
+        check_keyword(b"Sqr", Token::Sqr);
+        check_keyword(b"Star", Token::Star);
+        check_keyword(b"Step", Token::Step);
+        check_keyword(b"Stop", Token::Stop);
+        check_keyword(b"Str$", Token::StrDollar);
+        check_keyword(b"String$", Token::StringDollar);
+        check_keyword(b"X$", Token::StringIdentifier(ByteString(b"X")));
+        check_keyword(b"\"X\"", Token::StringLiteral(ByteString(b"X")));
+        check_keyword(b"Stroke", Token::Stroke);
+        check_keyword(b"Sum", Token::Sum);
+        check_keyword(b"Swap", Token::Swap);
+        check_keyword(b"Swi", Token::Swi);
+        check_keyword(b"Sys", Token::Sys);
+        check_keyword(b"Tab", Token::Tab);
+        check_keyword(b"Tan", Token::Tan);
+        check_keyword(b"Then", Token::Then);
+        check_keyword(b"Time", Token::Time);
+        check_keyword(b"Tint", Token::Tint);
+        check_keyword(b"To", Token::To);
+        check_keyword(b"Trace", Token::Trace);
+        check_keyword(b"Until", Token::Until);
+        check_keyword(b"Usr", Token::Usr);
+        check_keyword(b"Val", Token::Val);
+        check_keyword(b"Verify", Token::Verify);
+        check_keyword(b"VPos", Token::VPos);
+        check_keyword(b"Wait", Token::Wait);
+        check_keyword(b"While", Token::While);
+        check_keyword(b"Width", Token::Width);
     }
 
     #[test]
     fn identifiers() {
         assert_eq!(
             Lexer::lex_tokens(&b"x"[..]),
-            Ok((Token::Identifier(&b"x"[..]), &b""[..]))
+            Ok((Token::Identifier(ByteString(&b"x"[..])), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"lets"[..]),
-            Ok((Token::Identifier(&b"lets"[..]), &b""[..]))
+            Ok((Token::Identifier(ByteString(&b"lets"[..])), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"x==123"[..]),
-            Ok((Token::Identifier(&b"x"[..]), &b"==123"[..]))
+            Ok((Token::Identifier(ByteString(&b"x"[..])), &b"==123"[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"Abc"[..]),
-            Ok((Token::Identifier(&b"Abc"[..]), &b""[..]))
+            Ok((Token::Identifier(ByteString(&b"Abc"[..])), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"Abc0"[..]),
-            Ok((Token::Identifier(&b"Abc0"[..]), &b""[..]))
+            Ok((Token::Identifier(ByteString(&b"Abc0"[..])), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"a_bc0"[..]),
-            Ok((Token::Identifier(&b"a_bc0"[..]), &b""[..]))
+            Ok((Token::Identifier(ByteString(&b"a_bc0"[..])), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"_abc"[..]),
-            Ok((Token::Identifier(&b"_abc"[..]), &b""[..]))
+            Ok((Token::Identifier(ByteString(&b"_abc"[..])), &b""[..]))
         );
         assert!(Lexer::lex_tokens(&b"0abc"[..]).is_err());
     }
@@ -618,21 +1020,21 @@ mod test {
     fn strings() {
         assert_eq!(
             Lexer::lex_tokens(&b"\"test\""[..]),
-            Ok((Token::StringLiteral(b"test"), &b""[..]))
+            Ok((Token::StringLiteral(ByteString(b"test")), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b" \"test\""[..]),
-            Ok((Token::StringLiteral(b"test"), &b""[..]))
+            Ok((Token::StringLiteral(ByteString(b"test")), &b""[..]))
         );
         assert_eq!(
             Lexer::lex_tokens(&b"\"test\" "[..]),
-            Ok((Token::StringLiteral(b"test"), &b" "[..]))
+            Ok((Token::StringLiteral(ByteString(b"test")), &b" "[..]))
         );
         // The lexer doesn't re-write strings to remove the escapes. That
         // would require memory allocation.
         assert_eq!(
             Lexer::lex_tokens(&b"\"te\\\"st \" "[..]),
-            Ok((Token::StringLiteral(b"te\\\"st "), &b" "[..]))
+            Ok((Token::StringLiteral(ByteString(b"te\\\"st ")), &b" "[..]))
         );
     }
 
@@ -643,13 +1045,13 @@ mod test {
                 "Error parsing tokens: expected {:?} in {:?}",
                 expected_token, buffer
             ));
-            buffer = remainder;
             if token != *expected_token {
                 panic!(
-                    "Token {} is {:?}, but expected {:?}",
-                    idx, token, *expected_token
+                    "Token {} is {:?}, but expected {:?} in {:?}",
+                    idx, token, *expected_token, ::std::str::from_utf8(buffer)
                 );
             }
+            buffer = remainder;
         }
         assert_eq!(buffer.len(), 0);
 
@@ -660,7 +1062,7 @@ mod test {
 
     #[test]
     fn old_fashioned() {
-        let source = br#"10 X%=0
+        let source = br#"10 X%=0:Y=-1.23
 20 PRINT "HELLO, WORLD"
 30 GOSUB 1000
 40 GOTO 10
@@ -669,13 +1071,17 @@ mod test {
         "#;
         let expected_tokens = [
             Token::DecimalIntLiteral(10),
-            Token::IntegerIdentifier(b"X"),
+            Token::IntegerIdentifier(ByteString(b"X")),
             Token::Assign,
             Token::DecimalIntLiteral(0),
+            Token::Colon,
+            Token::Identifier(ByteString(b"Y")),
+            Token::Assign,
+            Token::DecimalFloatLiteral(-1.23),
             Token::NewLine,
             Token::DecimalIntLiteral(20),
             Token::Print,
-            Token::StringLiteral(b"HELLO, WORLD"),
+            Token::StringLiteral(ByteString(b"HELLO, WORLD")),
             Token::NewLine,
             Token::DecimalIntLiteral(30),
             Token::Gosub,
@@ -686,9 +1092,9 @@ mod test {
             Token::DecimalIntLiteral(10),
             Token::NewLine,
             Token::DecimalIntLiteral(1000),
-            Token::IntegerIdentifier(b"X"),
+            Token::IntegerIdentifier(ByteString(b"X")),
             Token::Assign,
-            Token::IntegerIdentifier(b"X"),
+            Token::IntegerIdentifier(ByteString(b"X")),
             Token::Plus,
             Token::DecimalIntLiteral(1),
             Token::NewLine,
@@ -698,6 +1104,11 @@ mod test {
             Token::EOF,
         ];
         compare(source, &expected_tokens);
+    }
+
+    #[test]
+    fn basic_example_from_readme() {
+
     }
 
     #[test]
@@ -714,39 +1125,39 @@ endif
 return 0x200
         "#;
         let expected_tokens = [
-            Token::Identifier(b"x"),
+            Token::Identifier(ByteString(b"x")),
             Token::Assign,
             Token::DecimalIntLiteral(123),
             Token::NewLine,
             Token::Dim,
-            Token::Identifier(b"x"),
+            Token::Identifier(ByteString(b"x")),
             Token::As,
             Token::Integer,
             Token::NewLine,
-            Token::Identifier(b"y"),
+            Token::Identifier(ByteString(b"y")),
             Token::Assign,
-            Token::Identifier(b"foo"),
+            Token::Identifier(ByteString(b"foo")),
             Token::LeftRoundBracket,
-            Token::Identifier(b"x"),
+            Token::Identifier(ByteString(b"x")),
             Token::RightRoundBracket,
             Token::NewLine,
             Token::Input,
-            Token::StringIdentifier(b"A"),
+            Token::StringIdentifier(ByteString(b"A")),
             Token::NewLine,
             Token::If,
-            Token::Identifier(b"y"),
+            Token::Identifier(ByteString(b"y")),
             Token::GreaterThan,
-            Token::Identifier(b"x"),
+            Token::Identifier(ByteString(b"x")),
             Token::Then,
             Token::NewLine,
-            Token::Identifier(b"baz"),
+            Token::Identifier(ByteString(b"baz")),
             Token::LeftRoundBracket,
             Token::BoolLiteral(true),
             Token::RightRoundBracket,
             Token::NewLine,
             Token::Else,
             Token::NewLine,
-            Token::Identifier(b"bar"),
+            Token::Identifier(ByteString(b"bar")),
             Token::LeftRoundBracket,
             Token::BoolLiteral(false),
             Token::RightRoundBracket,
