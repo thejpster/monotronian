@@ -106,6 +106,9 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         if check_case_insensitive(word.0, b"atn") {
             return Some(Token::Atn);
         }
+        if check_case_insensitive(word.0, b"auto") {
+            return Some(Token::Auto);
+        }
         if check_case_insensitive(word.0, b"beep") {
             return Some(Token::Beep);
         }
@@ -384,9 +387,6 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         }
         if check_case_insensitive(word.0, b"private") {
             return Some(Token::Private);
-        }
-        if check_case_insensitive(word.0, b"proc") {
-            return Some(Token::Proc);
         }
         if check_case_insensitive(word.0, b"quit") {
             return Some(Token::Quit);
@@ -909,6 +909,7 @@ mod test {
         check_keyword(b"Asn", Token::Asn);
         check_keyword(b"=", Token::Assign);
         check_keyword(b"Atn", Token::Atn);
+        check_keyword(b"Auto", Token::Auto);
         check_keyword(b"Beep", Token::Beep);
         check_keyword(b"BGet#", Token::BGetHash);
         check_keyword(b"True", Token::BoolLiteral(true));
@@ -1016,7 +1017,6 @@ mod test {
         check_keyword(b"Print", Token::Print);
         check_keyword(b"Print#", Token::PrintHash);
         check_keyword(b"Private", Token::Private);
-        check_keyword(b"Proc", Token::Proc);
         check_keyword(b"Quit", Token::Quit);
         check_keyword(b"Rad", Token::Rad);
         check_keyword(b"Read", Token::Read);
