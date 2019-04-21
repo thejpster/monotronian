@@ -96,6 +96,8 @@ F2XmainXargsI=CXlength1VXargs,G1AXlimit,Xerror,CXint,VXargs[0]IFVXerrorCXprint",
 
 Which is 546 characters and should be completely equivalent.
 
+## Example use
+
 ```
 $ list
 Listing 36 lines

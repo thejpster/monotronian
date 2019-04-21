@@ -3,78 +3,148 @@
 //! A BASIC-alike language for Monotron. See README.md.
 
 #![cfg_attr(not(test), no_std)]
-#![cfg_attr(not(test), feature(alloc))]
-
-#[cfg(test)]
-use std as core;
 
 #[macro_use]
 extern crate nom;
 
-#[cfg(not(test))]
-extern crate alloc;
-#[cfg(not(test))]
-use alloc::prelude::*;
+use heapless::{Vec, consts::*};
 
 pub mod lexer;
-pub mod parser;
 
-pub struct Parser {
-    _state: State,
+pub struct Parser<'a> {
+    operator_stack: Vec<lexer::Token<'a>, U8>,
+    postfix: Vec<lexer::Token<'a>, U8>,
 }
 
 #[derive(Debug)]
 pub enum Error<'a> {
     Unknown,
     Lexer(lexer::Error<'a>),
+    UnexpectedToken(lexer::Token<'a>),
     Incomplete,
 }
 
-#[derive(Debug)]
-pub enum Value {
-    /// Our strings are 8-bit strings in CodePage 850
-    String(Vec<u8>),
-    /// Our numbers are 64-bit signed
-    Integer(i64),
-    /// This is currently unsupported.
-    Real(f64),
+trait Peekable<T> {
+    fn peek(&self) -> Option<T>;
 }
 
-enum State {
-    Init,
-}
-
-impl Parser {
-    pub fn new() -> Parser {
-        Parser {
-            _state: State::Init,
+impl<T, S> Peekable<T> for Vec<T, S> where S: heapless::ArrayLength<T>, T: Clone {
+    fn peek(&self) -> Option<T> {
+        if self.len() == 0 {
+            None
+        } else {
+            Some(self[self.len() - 1].clone())
         }
     }
+}
 
-    pub fn parse<'a>(
+impl<'a> Parser<'a> {
+    pub fn new() -> Parser<'a> {
+        Parser {
+            operator_stack: Vec::new(),
+            postfix: Vec::new(),
+         }
+    }
+
+    pub fn parse(
         &mut self,
-        buffer: &'a [u8],
-        debug: &mut core::fmt::Write,
-    ) -> Result<Value, Error<'a>> {
+        buffer: &'a [u8]
+    ) -> Result<i64, Error<'a>> {
+        use lexer::{Token, Lexer};
         let mut buffer = buffer;
         loop {
-            // Step 1. lex(buffer) -> tokens
-            // Need to feed the tokens into some sort of token buffer
-            // so we can create an AST. We then store the AST and execute it later.
-            match lexer::Lexer::lex_tokens(&buffer) {
-                Ok((lexer::Token::EOF, _)) => {
+            // lex the input and use the shunting-yard algorithm to convert it
+            // to reverse polish notation
+            let token = Lexer::lex_tokens(&buffer);
+            match token {
+                Ok((Token::EOF, _)) => {
                     break;
                 }
-                Ok((token, remainder)) => {
+                Ok((Token::Operator(op), remainder)) => {
+                    // Check top of operator stack - pop off lower then push on
+                    while let Some(Token::Operator(top_op)) = self.operator_stack.peek() {
+                        if op > top_op {
+                            self.operator_stack.pop().unwrap();
+                            self.postfix.push(Token::Operator(top_op)).unwrap();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.operator_stack.push(Token::Operator(op)).unwrap();
                     buffer = remainder;
-                    writeln!(debug, "Got {:?}", token).unwrap();
+                }
+                Ok((Token::DecimalIntLiteral(number), remainder)) => {
+                    // Copy number to output array
+                    self.postfix.push(Token::DecimalIntLiteral(number)).unwrap();
+                    buffer = remainder;
+                }
+                Ok((Token::LeftRoundBracket, remainder)) => {
+                    self.operator_stack.push(Token::LeftRoundBracket).unwrap();
+                    buffer = remainder;
+                }
+                Ok((Token::RightRoundBracket, remainder)) => {
+                    while let Some(op) = self.operator_stack.pop() {
+                        match op {
+                            Token::LeftRoundBracket => {
+                                break;
+                            }
+                            other => {
+                                self.postfix.push(other).unwrap();
+                            }
+                        }
+                    }
+                    buffer = remainder;
+                }
+                Ok((Token::NewLine, _remainder)) => {
+                    // End of line
+                    break;
+                }
+                Ok((token, _remainder)) => {
+                    // Bad input
+                    return Err(Error::UnexpectedToken(token));
                 }
                 Err(e) => {
                     return Err(Error::Lexer(e));
                 }
             }
         }
-        Ok(Value::Integer(0))
+        while let Some(op) = self.operator_stack.pop() {
+            self.postfix.push(op).unwrap();
+        }
+        // Now evaluate the RPN
+        self.evaluate()
+    }
+
+    pub fn evaluate(&mut self) -> Result<i64, Error<'a>> {
+        use lexer::{Token, Operator};
+        match self.postfix.pop().unwrap() {
+            Token::DecimalIntLiteral(u) => {
+                return Ok(u);
+            }
+            Token::Operator(Operator::Plus) => {
+                let right = self.evaluate()?;
+                let left = self.evaluate()?;
+                return Ok(left + right);
+            }
+            Token::Operator(Operator::Minus) => {
+                let right = self.evaluate()?;
+                let left = self.evaluate()?;
+                return Ok(left - right);
+            }
+            Token::Operator(Operator::Star) => {
+                let right = self.evaluate()?;
+                let left = self.evaluate()?;
+                return Ok(left * right);
+            }
+            Token::Operator(Operator::Slash) => {
+                let right = self.evaluate()?;
+                let left = self.evaluate()?;
+                return Ok(left / right);
+            }
+            t => {
+                panic!("Unexpected {:?}", t);
+            }
+        }
     }
 }
 
@@ -96,8 +166,26 @@ pub(crate) fn display_ascii_string(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn basic_maths() {
+        let input = b"1 + 2";
+        let mut p = Parser::new();
+        assert_eq!(p.parse(input).unwrap(), 3);
+    }
+
+    #[test]
+    fn two_operations() {
+        let input = b"1 + 2 * 3";
+        let mut p = Parser::new();
+        assert_eq!(p.parse(input).unwrap(), 7);
+    }
+
+    #[test]
+    fn brackets() {
+        let input = b"(1 + 2) * 3";
+        let mut p = Parser::new();
+        assert_eq!(p.parse(input).unwrap(), 9);
     }
 }
