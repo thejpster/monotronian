@@ -63,10 +63,10 @@ FN("main", "args")
 	ASSIGN(("target"), CALL("random", VAR("limit")))
 	CALL("print", STRING("I have picked a number from 1 to "), VAR("limit"))
 	WHILE(TRUE)
-		ASSIGN(("guess"), CALL("input",STRING("Enter your guess:")))
-		ASSIGN(("guess", "error"), CALL("int",VAR("guess")))
+		ASSIGN(("guess"), CALL("input", STRING("Enter your guess:")))
+		ASSIGN(("guess", "error"), CALL("int", VAR("guess")))
 		IF(VAR("error"))
-			CALL("print", CONSTANT("That's not a number"))
+			CALL("print", STRING("That's not a number"))
 		ELSE
 			ASSIGN(("guess[]"), VAR("guess"))
 			IF(GT(VAR("guess"), VAR("target")))
@@ -92,12 +92,12 @@ One way to encode this as bytes is:
 
 bytes := 0x00 .. 0xFF
 len := u8
+nil := T_NIL
 boolean := T_TRUE | T_FALSE
 integer := i32
 float := f32
-literal := T_STRING string | T_INTEGER integer | T_FLOAT float | T_ARRAY argument_list
+literal := T_STRING string | T_INTEGER integer | T_FLOAT float | T_ARRAY argument_list | T_NIL
 variable := T_VARIABLE name:string | T_INDEX name:string index:expression
-atom := literal | variable | call
 call := T_CALL func:string argument_list
 string := string_length:len [ [ char:byte ] * string_length ]
 param_list := num_params:len [ [ param_name:string ] * num_params ]
@@ -107,14 +107,16 @@ function := T_FN name:string param_list
 endfn := T_ENDFN
 short_if := T_SHORTIF expression THEN short_statement
 if := T_IF expression
+for := T_FOR variable expression expression
+for_step := T_FOR_STEP variable expression expression expression
+next := T_NEXT
 else := T_ELSE
 endif := T_ENDIF
 while := T_WHILE expression
 endwhile := T_ENDWHILE
-assign := T_ASSIGN param_list argument_list
-return := T_RETURN argument_list
+assign := T_ASSIGN variable expression
+return := T_RETURN expression
 break := T_BREAK
-atom := T_VAR name:string | string | T_INT integer | T_FLOAT float
 
 *Only valid for boolean*
 not := T_NOT expression
@@ -134,8 +136,15 @@ divide := T_DIVIDE expression expression
 modulo := T_MODULO expression expression
 *Only valid for string, string*
 append := T_APPEND expression expression
+*Only valid for any two types which are the same*
+equals := T_EQUALS expression expression
+different := T_DIFFERENT expression expression
+less_than := T_LT expression expression
+less_than_equal := T_LTE expression expression
+greater_than := T_GT expression expression
+greater_than_equal := T_GTE expression expression
 
-expression := literal | not | logical_and | logical_or | bitwise_and | bitwise_or | negate | add | subtract | times | divide | modulo | append | call
+expression := variable | literal | not | logical_and | logical_or | bitwise_and | bitwise_or | negate | add | subtract | times | divide | modulo | append | equals | different | less_than | less_than_equal | greater_than | greater_than_equal | call | for | for_step | next
 
 **NB: Is expression just a special case of assign, with zero parameters?**
 stored_line := statement
@@ -153,6 +162,39 @@ This ends up being a bit like the S-Expressions used in LISP and Web Assembly.
 
 Variables live on the stack. Global variables live on the heap. Strings are heap allocated. Maybe we could support pointers, boxing integers and floats and dereferencing? Maybe we could support structures and fields? Or dictionaries? How about arrays/lists? Method syntax (var.method(args))?
 
+Maybe each item above (prefixed with T_xxx token) could also include a value which was how long that item was in bytes. This would make it quicker to skip through complex expressions? And it is fixed once the line has been parsed and stored? Maybe an optimisation for later.
+
+## Built-in functions
+
+* sin / cos / tan / etc
+* length(array or string) -> int
+* print(anything...)
+* input() -> string
+* char(int) -> string
+* int(anything) -> int or nil
+* float(anything) -> float or nil
+* string(anything) -> string
+* boolean(anything) -> boolean
+**Or is the slice [x..y] syntax better here?**
+* left(string or array, count:int) -> string or array
+* mid(string or array, start:int, count:int) -> string or array
+* right(string or array, count:int) -> string or array
+* cursor(enable:boolean)
+* move(row:int, col:int)
+* random() -> float between 0 and 1
+
+**Some ideas...**
+* array() -> array
+* append(array, anything) -> nil
+* contains(array or dict, anything) -> found:boolean
+* find(string or array, anything) -> index:int
+* dict() -> dict
+* get(dict, key:anything) -> value:anything
+* set(dict, key:anything, value:anything) -> old_value:anything
+
+FOR x = 1 to LENGTH(some_array)
+some_array[x] = int(some_array[x])
+NEXT
 
 ## Example use
 
