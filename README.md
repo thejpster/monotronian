@@ -74,8 +74,8 @@ FN("main", "args")
 			ELIF(LT(VAR("guess"), VAR("target")))
 				CALL("print", STRING("Too low!"))
 			ELSE
-				CALL("print", STRING("That's right! Well done :)"))			
-				CALL("print", STRING("Your guesses were:"))			
+				CALL("print", STRING("That's right! Well done :)"))
+				CALL("print", STRING("Your guesses were:"))
 				ASSIGN("i", INTEGER(0))
 				WHILE(LT(VAR("i"), CALL("length", VAR("guesses"))))
 					CALL("print", VAR("i"))
@@ -88,13 +88,71 @@ FN("main", "args")
 ENDFN
 ```
 
-This might tokenise down to
+One way to encode this as bytes is:
 
-```
-F2XmainXargsI=CXlength1VXargs,G1AXlimit,Xerror,CXint,VXargs[0]IFVXerrorCXprint",SXArgument,VXargs[0],SX isn't a number?!RiEAXlimit,G100iAXtarget,CXrandom,VXlimitCXprint,SXI have picked a number from 1 to ,VXlimitWTRUEAXguess,CXinput,SXEnter your guess:AXguess,"error,CXint,VXguessIFVXerrorCXprint,CONSTANTXThat's not a numberEAXguess[],VXguessIFGTVXguess,VXtargetCXprint,SXToo high!L<VXguess,VXtargetCXprint,SXToo low!ECXprint,SXThat's right! Well done :)CXprint,SXYour guesses were:AXi,G0W<VXi,CXlength,VXguessesCXprint,VXiAXi",+VXi,G1wBREAKiiwf
-```
+bytes := 0x00 .. 0xFF
+len := u8
+boolean := T_TRUE | T_FALSE
+integer := i32
+float := f32
+literal := T_STRING string | T_INTEGER integer | T_FLOAT float | T_ARRAY argument_list
+variable := T_VARIABLE name:string | T_INDEX name:string index:expression
+atom := literal | variable | call
+call := T_CALL func:string argument_list
+string := string_length:len [ [ char:byte ] * string_length ]
+param_list := num_params:len [ [ param_name:string ] * num_params ]
+argument_list := num_args:len [ [ arg:expression ] * num_args ]
 
-Which is 546 characters and should be completely equivalent.
+function := T_FN name:string param_list
+endfn := T_ENDFN
+short_if := T_SHORTIF expression THEN short_statement
+if := T_IF expression
+else := T_ELSE
+endif := T_ENDIF
+while := T_WHILE expression
+endwhile := T_ENDWHILE
+assign := T_ASSIGN param_list argument_list
+return := T_RETURN argument_list
+break := T_BREAK
+atom := T_VAR name:string | string | T_INT integer | T_FLOAT float
+
+*Only valid for boolean*
+not := T_NOT expression
+*Only valid for boolean, boolean*
+logical_and := T_LAND expression expression
+logical_or := T_LOR expression expression
+*Only valid for int, int*
+bitwise_and := T_BAND expression expression
+bitwise_or := T_BOR expression expression
+*Only valid for int or float*
+negate := T_NEGATE expression
+*Only valid for int, int or float, float*
+add := T_ADD expression expression
+subtract := T_SUBTRACT expression expression
+times := T_TIMES expression expression
+divide := T_DIVIDE expression expression
+modulo := T_MODULO expression expression
+*Only valid for string, string*
+append := T_APPEND expression expression
+
+expression := literal | not | logical_and | logical_or | bitwise_and | bitwise_or | negate | add | subtract | times | divide | modulo | append | call
+
+**NB: Is expression just a special case of assign, with zero parameters?**
+stored_line := statement
+short_statement := assign | call | return
+statement := if | assign | call | else | endif | while | endwhile | return
+**If it's an expression, we print the result**
+immediate_line := assign | expression
+
+For any given pointer p which points at one of the above, you can determine the type of that item by looking at that byte, and compute the length of that item by computing the length of the constituent pieces. You can evaluate an expression by
+calculating the value of the constituent pieces. We don't have to worry about brackets as the shunting-yard algorithm has sorted that.
+
+To call a function, we can either look up the function name in a special index, or we can walk the tree looking for functions defined at the top-level. Nested functions are not supported. Closures are not supported. Maybe we could have a cache of pointers to the X most recently called functions, to speed up lookup time.
+
+This ends up being a bit like the S-Expressions used in LISP and Web Assembly.
+
+Variables live on the stack. Global variables live on the heap. Strings are heap allocated. Maybe we could support pointers, boxing integers and floats and dereferencing? Maybe we could support structures and fields? Or dictionaries? How about arrays/lists? Method syntax (var.method(args))?
+
 
 ## Example use
 
