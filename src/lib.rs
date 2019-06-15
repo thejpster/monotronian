@@ -7,9 +7,13 @@
 #[macro_use]
 extern crate nom;
 
+#[macro_use]
+extern crate num_derive;
+
 use heapless::{Vec, consts::*};
 
 pub mod lexer;
+pub mod byte_code;
 
 pub struct Parser<'a> {
     operator_stack: Vec<lexer::Token<'a>, U8>,
