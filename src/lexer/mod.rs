@@ -9,10 +9,10 @@
 
 pub mod token;
 
-use nom::types::CompleteByteSlice;
-pub use self::token::{Token, Operator};
 pub use self::token::ByteString;
+pub use self::token::{Operator, Token};
 use super::display_ascii_string;
+use nom::types::CompleteByteSlice;
 
 pub struct Lexer;
 
@@ -377,7 +377,6 @@ named!(parse_token<CompleteByteSlice, Token>,
     )
 );
 
-
 /// Like f64::from_str but ignores underscores.
 fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'a>> {
     let mut iresult = 0i64;
@@ -404,7 +403,9 @@ fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'
             _ => {
                 if seen_dot {
                     frac = frac / 10.0;
-                    let digit = (*ch as char).to_digit(10).ok_or(Error::BadNumber(input.0))? as f64;
+                    let digit = (*ch as char)
+                        .to_digit(10)
+                        .ok_or(Error::BadNumber(input.0))? as f64;
                     result += digit * frac;
                 } else {
                     iresult *= i64::from(10);
@@ -436,9 +437,7 @@ fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, E
                     return Err(Error::BadNumber(input.0));
                 }
             }
-            b'.' => {
-                return Err(Error::BadNumber(input.0))
-            }
+            b'.' => return Err(Error::BadNumber(input.0)),
             _ => {
                 result *= i64::from(radix);
                 result += (*ch as char)
@@ -552,7 +551,12 @@ mod test {
     fn check_keyword(source: &[u8], token: Token) {
         let got = Lexer::lex_tokens(source).unwrap();
         if got.0 != token {
-            panic!("Got {:?}, expected {:?} in {:?}", got, token, ::std::str::from_utf8(source));
+            panic!(
+                "Got {:?}, expected {:?} in {:?}",
+                got,
+                token,
+                ::std::str::from_utf8(source)
+            );
         }
         if got.1 != &b""[..] {
             panic!("Got {:?} expected nothing", got.1);
@@ -679,7 +683,10 @@ mod test {
             if token != *expected_token {
                 panic!(
                     "Token {} is {:?}, but expected {:?} in {:?}",
-                    idx, token, *expected_token, ::std::str::from_utf8(buffer)
+                    idx,
+                    token,
+                    *expected_token,
+                    ::std::str::from_utf8(buffer)
                 );
             }
             buffer = remainder;

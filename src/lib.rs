@@ -10,10 +10,10 @@ extern crate nom;
 #[macro_use]
 extern crate num_derive;
 
-use heapless::{Vec, consts::*};
+use heapless::{consts::*, Vec};
 
-pub mod lexer;
 pub mod byte_code;
+pub mod lexer;
 
 pub struct Parser<'a> {
     operator_stack: Vec<lexer::Token<'a>, U8>,
@@ -32,7 +32,11 @@ trait Peekable<T> {
     fn peek(&self) -> Option<T>;
 }
 
-impl<T, S> Peekable<T> for Vec<T, S> where S: heapless::ArrayLength<T>, T: Clone {
+impl<T, S> Peekable<T> for Vec<T, S>
+where
+    S: heapless::ArrayLength<T>,
+    T: Clone,
+{
     fn peek(&self) -> Option<T> {
         if self.len() == 0 {
             None
@@ -47,14 +51,11 @@ impl<'a> Parser<'a> {
         Parser {
             operator_stack: Vec::new(),
             postfix: Vec::new(),
-         }
+        }
     }
 
-    pub fn parse(
-        &mut self,
-        buffer: &'a [u8]
-    ) -> Result<i64, Error<'a>> {
-        use lexer::{Token, Lexer};
+    pub fn parse(&mut self, buffer: &'a [u8]) -> Result<i64, Error<'a>> {
+        use lexer::{Lexer, Token};
         let mut buffer = buffer;
         loop {
             // lex the input and use the shunting-yard algorithm to convert it
@@ -120,7 +121,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn evaluate(&mut self) -> Result<i64, Error<'a>> {
-        use lexer::{Token, Operator};
+        use lexer::{Operator, Token};
         match self.postfix.pop().unwrap() {
             Token::DecimalIntLiteral(u) => {
                 return Ok(u);
