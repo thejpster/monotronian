@@ -45,7 +45,6 @@ enum Instruction {
     Modulo,
     Negate,
     Next,
-    Nil,
     Not,
     Return,
     Subtract,
@@ -70,6 +69,7 @@ pub enum Value<'a> {
 pub enum Error {
     FunctionNotFound,
     UnrecognisedToken,
+    InvalidOperandType,
     OutOfBounds(usize),
 }
 
@@ -86,6 +86,60 @@ impl<'a> Program<'a> {
                 .ok_or_else(|| Error::OutOfBounds(offset))?,
         )
         .ok_or(Error::UnrecognisedToken)
+    }
+
+    fn execute_instructions(&self, mut offset: usize) -> Result<(Value, usize), Error> {
+        let i = self.read_instruction(offset)?;
+        offset += 1;
+        match i {
+            Instruction::Add => {
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x + y), offset)),
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Subtract => {
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x - y), offset)),
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Times => {
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x * y), offset)),
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Divide => {
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x / y), offset)),
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Return => self.execute_instructions(offset),
+            Instruction::LiteralInteger => {
+                let mut result = 0;
+                // Parse as little-endian 32-bit integer
+                result += u32::from(self.code[offset + 3]);
+                result *= 256;
+                result += u32::from(self.code[offset + 2]);
+                result *= 256;
+                result += u32::from(self.code[offset + 1]);
+                result *= 256;
+                result += u32::from(self.code[offset]);
+                Ok((Value::Integer(result as i32), offset + 4))
+            }
+            Instruction::LiteralNil => Ok((Value::Nil, offset)),
+            _ => unimplemented!(),
+        }
     }
 
     fn skip_instruction(&self, instruction_offset: usize) -> Result<usize, Error> {
@@ -146,8 +200,7 @@ impl<'a> Program<'a> {
             | Instruction::False
             | Instruction::LiteralNil
             | Instruction::True
-            | Instruction::Next
-            | Instruction::Nil => {
+            | Instruction::Next => {
                 // No args
             }
             // Call a function
@@ -242,10 +295,9 @@ impl<'a> Program<'a> {
             match self.read_instruction(offset) {
                 Ok(Instruction::Fn) => {
                     let fun_name = self.read_string(offset + 1);
+                    offset = self.decoded_skip_instruction(Instruction::Fn, offset + 1)?;
                     if fun_name == search_name {
                         return Ok(offset);
-                    } else {
-                        offset = self.decoded_skip_instruction(Instruction::Fn, offset + 1)?;
                     }
                 }
                 Ok(i) => offset = self.decoded_skip_instruction(i, offset + 1)?,
@@ -259,15 +311,17 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn run_function(&mut self, name: &[u8]) -> Result<Value<'a>, Error> {
+    pub fn run_function(&mut self, name: &[u8]) -> Result<Value, Error> {
         let mut offset = self.find_function(name)?;
         loop {
             match self.read_instruction(offset) {
                 Ok(Instruction::Return) => {
-                    return Ok(Value::Nil);
+                    let (value, _new_offset) = self.execute_instructions(offset)?;
+                    return Ok(value);
                 }
-                Ok(i) => {
-                    offset = self.decoded_skip_instruction(i, offset + 1)?;
+                Ok(_i) => {
+                    let (_value, new_offset) = self.execute_instructions(offset)?;
+                    offset = new_offset;
                 }
                 Err(e) => {
                     return Err(e);
@@ -297,10 +351,62 @@ mod test {
             b'g',
             b's',
             Instruction::Return as u8,
-            Instruction::Nil as u8,
+            Instruction::LiteralNil as u8,
         ];
         let mut p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"main"), Ok(Value::Nil));
+    }
+
+    #[test]
+    fn return_integer_zero() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::LiteralInteger as u8,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Integer(0)));
+    }
+
+    #[test]
+    fn return_integer_one() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::LiteralInteger as u8,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Integer(1)));
     }
 
     #[test]
@@ -319,7 +425,7 @@ mod test {
             b'g',
             b's',
             Instruction::Return as u8,
-            Instruction::Nil as u8,
+            Instruction::LiteralNil as u8,
         ];
         let mut p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"mainX"), Err(Error::FunctionNotFound));
@@ -341,7 +447,7 @@ mod test {
             b'g',
             b's',
             Instruction::Return as u8,
-            Instruction::Nil as u8,
+            Instruction::LiteralNil as u8,
             Instruction::Fn as u8,
             0x03,
             b'f',
@@ -354,7 +460,7 @@ mod test {
             b'g',
             b's',
             Instruction::Return as u8,
-            Instruction::Nil as u8,
+            Instruction::LiteralNil as u8,
         ];
         let mut p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"foo"), Ok(Value::Nil));
