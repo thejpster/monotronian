@@ -384,6 +384,38 @@ mod test {
     }
 
     #[test]
+    fn return_integer_sum() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Add as u8,
+            Instruction::LiteralInteger as u8,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::LiteralInteger as u8,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Integer(3)));
+    }
+
+    #[test]
     fn return_integer_one() {
         let byte_code = [
             Instruction::Fn as u8,
