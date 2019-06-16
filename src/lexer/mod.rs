@@ -47,7 +47,7 @@ impl<'a> Iterator for TokenIterator<'a> {
     type Item = Result<Token<'a>, Error<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.input.len() == 0 {
+        if self.input.is_empty() {
             None
         } else {
             // get the next token from the start of the string
@@ -378,7 +378,7 @@ named!(parse_token<CompleteByteSlice, Token>,
 );
 
 /// Like f64::from_str but ignores underscores.
-fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'a>> {
+fn convert_float_digits(input: CompleteByteSlice) -> Result<f64, Error> {
     let mut iresult = 0i64;
     let mut result = 0f64;
     let mut valid = false;
@@ -402,16 +402,12 @@ fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'
             }
             _ => {
                 if seen_dot {
-                    frac = frac / 10.0;
-                    let digit = (*ch as char)
-                        .to_digit(10)
-                        .ok_or(Error::BadNumber(input.0))? as f64;
+                    frac /= 10.0;
+                    let digit = f64::from((*ch as char).to_digit(10).ok_or_else(|| Error::BadNumber(input.0))?);
                     result += digit * frac;
                 } else {
                     iresult *= i64::from(10);
-                    iresult += (*ch as char)
-                        .to_digit(10)
-                        .ok_or(Error::BadNumber(input.0))? as i64;
+                    iresult += i64::from((*ch as char).to_digit(10).ok_or_else(|| Error::BadNumber(input.0))?);
                 }
             }
         }
@@ -425,7 +421,7 @@ fn convert_float_digits<'a>(input: CompleteByteSlice<'a>) -> Result<f64, Error<'
 }
 
 /// Like i64::from_str_radix but ignores underscores.
-fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, Error<'a>> {
+fn convert_digits(input: CompleteByteSlice, radix: u32) -> Result<i64, Error> {
     let mut result = 0i64;
     let mut valid = false;
 
@@ -440,9 +436,9 @@ fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, E
             b'.' => return Err(Error::BadNumber(input.0)),
             _ => {
                 result *= i64::from(radix);
-                result += (*ch as char)
+                result += i64::from((*ch as char)
                     .to_digit(radix)
-                    .ok_or(Error::BadNumber(input.0))? as i64;
+                    .ok_or_else(|| Error::BadNumber(input.0))?);
             }
         }
         valid = true;
@@ -456,7 +452,7 @@ fn convert_digits<'a>(input: CompleteByteSlice<'a>, radix: u32) -> Result<i64, E
 
 impl Lexer {
     /// Take a complete function and produce an interator over the resulting tokens.
-    pub fn iterate<'a>(input: &'a [u8]) -> TokenIterator<'a> {
+    pub fn iterate(input: &[u8]) -> TokenIterator {
         TokenIterator { input }
     }
 
@@ -469,7 +465,7 @@ impl Lexer {
                 _ => break,
             }
         }
-        if input.len() == 0 {
+        if input.is_empty() {
             Ok((Token::EOF, b""))
         } else if let Ok((res, tok)) = parse_token(CompleteByteSlice(input)) {
             Ok((tok, res.0))

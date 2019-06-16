@@ -7,14 +7,12 @@
 #[macro_use]
 extern crate nom;
 
-#[macro_use]
-extern crate num_derive;
-
 use heapless::{consts::*, Vec};
 
 pub mod byte_code;
 pub mod lexer;
 
+#[derive(Default)]
 pub struct Parser<'a> {
     operator_stack: Vec<lexer::Token<'a>, U8>,
     postfix: Vec<lexer::Token<'a>, U8>,
@@ -123,28 +121,26 @@ impl<'a> Parser<'a> {
     pub fn evaluate(&mut self) -> Result<i64, Error<'a>> {
         use lexer::{Operator, Token};
         match self.postfix.pop().unwrap() {
-            Token::DecimalIntLiteral(u) => {
-                return Ok(u);
-            }
+            Token::DecimalIntLiteral(u) => Ok(u),
             Token::Operator(Operator::Plus) => {
                 let right = self.evaluate()?;
                 let left = self.evaluate()?;
-                return Ok(left + right);
+                Ok(left + right)
             }
             Token::Operator(Operator::Minus) => {
                 let right = self.evaluate()?;
                 let left = self.evaluate()?;
-                return Ok(left - right);
+                Ok(left - right)
             }
             Token::Operator(Operator::Star) => {
                 let right = self.evaluate()?;
                 let left = self.evaluate()?;
-                return Ok(left * right);
+                Ok(left * right)
             }
             Token::Operator(Operator::Slash) => {
                 let right = self.evaluate()?;
                 let left = self.evaluate()?;
-                return Ok(left / right);
+                Ok(left / right)
             }
             t => {
                 panic!("Unexpected {:?}", t);
