@@ -58,7 +58,7 @@ pub struct Program<'a> {
     code: &'a [u8],
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Value<'a> {
     StringLiteral(&'a [u8]),
     Integer(i32),
@@ -66,10 +66,11 @@ pub enum Value<'a> {
     Nil,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Error {
     FunctionNotFound,
     UnrecognisedToken,
+    OutOfBounds(usize),
 }
 
 impl<'a> Program<'a> {
@@ -78,52 +79,13 @@ impl<'a> Program<'a> {
     }
 
     fn read_instruction(&self, offset: usize) -> Result<Instruction, Error> {
-        let instruction = match FromPrimitive::from_u8(self.code[offset]) {
-            Some(Instruction::Add) => Instruction::Add,
-            Some(Instruction::Assign) => Instruction::Assign,
-            Some(Instruction::BAnd) => Instruction::BAnd,
-            Some(Instruction::Boolean) => Instruction::Boolean,
-            Some(Instruction::BOr) => Instruction::BOr,
-            Some(Instruction::Break) => Instruction::Break,
-            Some(Instruction::Call) => Instruction::Call,
-            Some(Instruction::Different) => Instruction::Different,
-            Some(Instruction::Divide) => Instruction::Divide,
-            Some(Instruction::ElIf) => Instruction::ElIf,
-            Some(Instruction::Else) => Instruction::Else,
-            Some(Instruction::EndFn) => Instruction::EndFn,
-            Some(Instruction::EndIf) => Instruction::EndIf,
-            Some(Instruction::EndWhile) => Instruction::EndWhile,
-            Some(Instruction::Equals) => Instruction::Equals,
-            Some(Instruction::False) => Instruction::False,
-            Some(Instruction::Fn) => Instruction::Fn,
-            Some(Instruction::GetVal) => Instruction::GetVal,
-            Some(Instruction::GetValIdx) => Instruction::GetValIdx,
-            Some(Instruction::Gt) => Instruction::Gt,
-            Some(Instruction::Gte) => Instruction::Gte,
-            Some(Instruction::If) => Instruction::If,
-            Some(Instruction::LAnd) => Instruction::LAnd,
-            Some(Instruction::LiteralArray) => Instruction::LiteralArray,
-            Some(Instruction::LiteralChar) => Instruction::LiteralChar,
-            Some(Instruction::LiteralFloat) => Instruction::LiteralFloat,
-            Some(Instruction::LiteralInteger) => Instruction::LiteralInteger,
-            Some(Instruction::LiteralNil) => Instruction::LiteralNil,
-            Some(Instruction::LiteralString) => Instruction::LiteralString,
-            Some(Instruction::LOr) => Instruction::LOr,
-            Some(Instruction::Lt) => Instruction::Lt,
-            Some(Instruction::Lte) => Instruction::Lte,
-            Some(Instruction::Modulo) => Instruction::Modulo,
-            Some(Instruction::Negate) => Instruction::Negate,
-            Some(Instruction::Next) => Instruction::Next,
-            Some(Instruction::Nil) => Instruction::Nil,
-            Some(Instruction::Not) => Instruction::Not,
-            Some(Instruction::Return) => Instruction::Return,
-            Some(Instruction::Subtract) => Instruction::Subtract,
-            Some(Instruction::Times) => Instruction::Times,
-            Some(Instruction::True) => Instruction::True,
-            Some(Instruction::While) => Instruction::While,
-            None => return Err(Error::UnrecognisedToken),
-        };
-        Ok(instruction)
+        FromPrimitive::from_u8(
+            *self
+                .code
+                .get(offset)
+                .ok_or_else(|| Error::OutOfBounds(offset))?,
+        )
+        .ok_or(Error::UnrecognisedToken)
     }
 
     fn skip_instruction(&self, instruction_offset: usize) -> Result<usize, Error> {
@@ -166,10 +128,10 @@ impl<'a> Program<'a> {
             }
             // An l-value string name, and an instruction
             Instruction::Assign => {
-                // variable name
+                // variable name string, but without the LiteralString token because it's implicit
                 arg_offset =
                     self.decoded_skip_instruction(Instruction::LiteralString, arg_offset)?;
-                // expression
+                // an expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
             Instruction::Boolean => {
@@ -188,62 +150,81 @@ impl<'a> Program<'a> {
             | Instruction::Nil => {
                 // No args
             }
+            // Call a function
             Instruction::Call => {
-                // func name
+                // function name string, but without the LiteralString token because it's implicit
                 arg_offset =
                     self.decoded_skip_instruction(Instruction::LiteralString, arg_offset)?;
-                // list of expressions
+                // list of expressions (which is the same as a LiteralArray)
                 arg_offset =
                     self.decoded_skip_instruction(Instruction::LiteralArray, arg_offset)?;
             }
+            // Define a function
             Instruction::Fn => {
-                // func name
+                // function name string, but without the LiteralString token because it's implicit
                 arg_offset =
                     self.decoded_skip_instruction(Instruction::LiteralString, arg_offset)?;
-                // list of param names
+                // a list of named parameters
                 let num_params = self.code[arg_offset] as usize;
                 arg_offset += 1;
                 for _ in 0..num_params {
+                    // parameter name string, but without the LiteralString token because it's implicit
                     arg_offset =
                         self.decoded_skip_instruction(Instruction::LiteralString, arg_offset)?;
                 }
             }
+            // Read a variable
             Instruction::GetVal => {
-                // variable name
+                // function name string, but without the LiteralString token because it's implicit
                 arg_offset =
                     self.decoded_skip_instruction(Instruction::LiteralString, arg_offset)?;
             }
+            // Read a variable at a given index
             Instruction::GetValIdx => {
-                // variable name
+                // variable name string, but without the LiteralString token because it's implicit
                 arg_offset =
                     self.decoded_skip_instruction(Instruction::LiteralString, arg_offset)?;
                 // Index
                 arg_offset += 1;
             }
+            // If statement
             Instruction::If => {
+                // An expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
+            // An i32 literal integer
             Instruction::LiteralInteger => {
                 arg_offset += 4;
             }
+            // A literal integer
             Instruction::LiteralString => {
+                // String length
                 let length = self.code[arg_offset] as usize;
                 arg_offset += 1;
+                // Array of bytes
                 arg_offset += length;
             }
+            // A literal 8-bit char
             Instruction::LiteralChar => {
                 arg_offset += 1;
             }
+            // A literal f32 float
             Instruction::LiteralFloat => {
                 arg_offset += 4;
             }
+            // Unary operators
             Instruction::Not | Instruction::Negate => {
+                // An expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
+            // Return an expression
             Instruction::Return => {
+                // An expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
+            // Start a while loop
             Instruction::While => {
+                // An expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
         }
@@ -258,14 +239,22 @@ impl<'a> Program<'a> {
     fn find_function(&self, search_name: &[u8]) -> Result<usize, Error> {
         let mut offset = 0;
         loop {
-            match self.read_instruction(offset)? {
-                Instruction::Fn => {
+            match self.read_instruction(offset) {
+                Ok(Instruction::Fn) => {
                     let fun_name = self.read_string(offset + 1);
                     if fun_name == search_name {
                         return Ok(offset);
+                    } else {
+                        offset = self.decoded_skip_instruction(Instruction::Fn, offset + 1)?;
                     }
                 }
-                i => offset += self.decoded_skip_instruction(i, offset + 1)?,
+                Ok(i) => offset = self.decoded_skip_instruction(i, offset + 1)?,
+                Err(Error::OutOfBounds(_)) => {
+                    return Err(Error::FunctionNotFound);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
             }
         }
     }
@@ -273,12 +262,101 @@ impl<'a> Program<'a> {
     pub fn run_function(&mut self, name: &[u8]) -> Result<Value<'a>, Error> {
         let mut offset = self.find_function(name)?;
         loop {
-            let instruction = self.read_instruction(offset)?;
-            if instruction == Instruction::Return {
-                return Ok(Value::Nil);
-            } else {
-                offset = self.decoded_skip_instruction(instruction, offset + 1)?;
+            match self.read_instruction(offset) {
+                Ok(Instruction::Return) => {
+                    return Ok(Value::Nil);
+                }
+                Ok(i) => {
+                    offset = self.decoded_skip_instruction(i, offset + 1)?;
+                }
+                Err(e) => {
+                    return Err(e);
+                }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn empty_function() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Nil as u8,
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Nil));
+    }
+
+    #[test]
+    fn function_not_found() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Nil as u8,
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"mainX"), Err(Error::FunctionNotFound));
+    }
+
+    #[test]
+    fn two_functions() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Nil as u8,
+            Instruction::Fn as u8,
+            0x03,
+            b'f',
+            b'o',
+            b'o',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Nil as u8,
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"foo"), Ok(Value::Nil));
     }
 }
