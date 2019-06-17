@@ -57,10 +57,11 @@ pub struct Program<'a> {
     code: &'a [u8],
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Value<'a> {
     StringLiteral(&'a [u8]),
     Integer(i32),
+    Float(f32),
     Boolean(bool),
     Nil,
 }
@@ -96,7 +97,19 @@ impl<'a> Program<'a> {
                 let (lhs, offset) = self.execute_instructions(offset)?;
                 let (rhs, offset) = self.execute_instructions(offset)?;
                 match (lhs, rhs) {
+                    // (int, int) -> int
                     (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x + y), offset)),
+                    // (float, float) -> float
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Float(x + y), offset)),
+                    // (float, int) -> float
+                    (Value::Float(x), Value::Integer(y)) => {
+                        Ok((Value::Float(x + y as f32), offset))
+                    }
+                    // (int, float) -> float
+                    (Value::Integer(x), Value::Float(y)) => {
+                        Ok((Value::Float(x as f32 + y), offset))
+                    }
+                    // Can't add any other sort of thing together
                     _ => Err(Error::InvalidOperandType),
                 }
             }
@@ -104,7 +117,19 @@ impl<'a> Program<'a> {
                 let (lhs, offset) = self.execute_instructions(offset)?;
                 let (rhs, offset) = self.execute_instructions(offset)?;
                 match (lhs, rhs) {
+                    // (int, int) -> int
                     (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x - y), offset)),
+                    // (float, float) -> float
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Float(x - y), offset)),
+                    // (float, int) -> float
+                    (Value::Float(x), Value::Integer(y)) => {
+                        Ok((Value::Float(x - (y as f32)), offset))
+                    }
+                    // (int, float) -> float
+                    (Value::Integer(x), Value::Float(y)) => {
+                        Ok((Value::Float((x as f32) - y), offset))
+                    }
+                    // Can't subtract any other sort of things
                     _ => Err(Error::InvalidOperandType),
                 }
             }
@@ -112,7 +137,19 @@ impl<'a> Program<'a> {
                 let (lhs, offset) = self.execute_instructions(offset)?;
                 let (rhs, offset) = self.execute_instructions(offset)?;
                 match (lhs, rhs) {
+                    // (int, int) -> int
                     (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x * y), offset)),
+                    // (float, float) -> float
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Float(x * y), offset)),
+                    // (float, int) -> float
+                    (Value::Float(x), Value::Integer(y)) => {
+                        Ok((Value::Float(x * (y as f32)), offset))
+                    }
+                    // (int, float) -> float
+                    (Value::Integer(x), Value::Float(y)) => {
+                        Ok((Value::Float((x as f32) * y), offset))
+                    }
+                    // Can't multiply any other sort of things
                     _ => Err(Error::InvalidOperandType),
                 }
             }
@@ -120,22 +157,44 @@ impl<'a> Program<'a> {
                 let (lhs, offset) = self.execute_instructions(offset)?;
                 let (rhs, offset) = self.execute_instructions(offset)?;
                 match (lhs, rhs) {
+                    // (int, int) -> int
                     (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x / y), offset)),
+                    // (float, float) -> float
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Float(x / y), offset)),
+                    // (float, int) -> float
+                    (Value::Float(x), Value::Integer(y)) => {
+                        Ok((Value::Float(x / (y as f32)), offset))
+                    }
+                    // (int, float) -> float
+                    (Value::Integer(x), Value::Float(y)) => {
+                        Ok((Value::Float((x as f32) / y), offset))
+                    }
+                    // Can't multiply any other sort of things
                     _ => Err(Error::InvalidOperandType),
                 }
             }
             Instruction::Return => self.execute_instructions(offset),
             Instruction::LiteralInteger => {
-                let mut result = 0;
                 // Parse as little-endian 32-bit integer
-                result += u32::from(self.code[offset + 3]);
-                result *= 256;
-                result += u32::from(self.code[offset + 2]);
-                result *= 256;
-                result += u32::from(self.code[offset + 1]);
-                result *= 256;
-                result += u32::from(self.code[offset]);
-                Ok((Value::Integer(result as i32), offset + 4))
+                let buf = [
+                    self.code[offset],
+                    self.code[offset + 1],
+                    self.code[offset + 2],
+                    self.code[offset + 3],
+                ];
+                let result = i32::from_le_bytes(buf);
+                Ok((Value::Integer(result), offset + 4))
+            }
+            Instruction::LiteralFloat => {
+                let buf = [
+                    self.code[offset],
+                    self.code[offset + 1],
+                    self.code[offset + 2],
+                    self.code[offset + 3],
+                ];
+                let result = u32::from_le_bytes(buf);
+                let float_result = f32::from_bits(result);
+                Ok((Value::Float(float_result), offset + 4))
             }
             Instruction::LiteralNil => Ok((Value::Nil, offset)),
             _ => unimplemented!(),
@@ -413,6 +472,154 @@ mod test {
         ];
         let mut p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"main"), Ok(Value::Integer(3)));
+    }
+
+    #[test]
+    fn return_float_sum() {
+        let arg1 = 0.1f32;
+        let arg1_bytes = arg1.to_bits().to_le_bytes();
+        let arg2 = 0.2f32;
+        let arg2_bytes = arg2.to_bits().to_le_bytes();
+        let result = arg1 + arg2;
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Add as u8,
+            Instruction::LiteralFloat as u8,
+            arg1_bytes[0],
+            arg1_bytes[1],
+            arg1_bytes[2],
+            arg1_bytes[3],
+            Instruction::LiteralFloat as u8,
+            arg2_bytes[0],
+            arg2_bytes[1],
+            arg2_bytes[2],
+            arg2_bytes[3],
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+    }
+
+    #[test]
+    fn return_float_times() {
+        let arg1 = 10.0f32;
+        let arg1_bytes = arg1.to_bits().to_le_bytes();
+        let arg2 = 20.0f32;
+        let arg2_bytes = arg2.to_bits().to_le_bytes();
+        let result = arg1 * arg2;
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Times as u8,
+            Instruction::LiteralFloat as u8,
+            arg1_bytes[0],
+            arg1_bytes[1],
+            arg1_bytes[2],
+            arg1_bytes[3],
+            Instruction::LiteralFloat as u8,
+            arg2_bytes[0],
+            arg2_bytes[1],
+            arg2_bytes[2],
+            arg2_bytes[3],
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+    }
+
+    #[test]
+    fn check_implicit_int_float_conversion() {
+        let arg1 = 10i32;
+        let arg1_bytes = arg1.to_le_bytes();
+        let arg2 = 20.0f32;
+        let arg2_bytes = arg2.to_bits().to_le_bytes();
+        let result = (arg1 as f32) * arg2;
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Times as u8,
+            Instruction::LiteralInteger as u8,
+            arg1_bytes[0],
+            arg1_bytes[1],
+            arg1_bytes[2],
+            arg1_bytes[3],
+            Instruction::LiteralFloat as u8,
+            arg2_bytes[0],
+            arg2_bytes[1],
+            arg2_bytes[2],
+            arg2_bytes[3],
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+    }
+
+    #[test]
+    fn check_implicit_float_int_conversion() {
+        let arg1 = 20.0f32;
+        let arg1_bytes = arg1.to_bits().to_le_bytes();
+        let arg2 = 10i32;
+        let arg2_bytes = arg2.to_le_bytes();
+        let result = arg1 * (arg2 as f32);
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Times as u8,
+            Instruction::LiteralFloat as u8,
+            arg1_bytes[0],
+            arg1_bytes[1],
+            arg1_bytes[2],
+            arg1_bytes[3],
+            Instruction::LiteralInteger as u8,
+            arg2_bytes[0],
+            arg2_bytes[1],
+            arg2_bytes[2],
+            arg2_bytes[3],
+        ];
+        let mut p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
     }
 
     #[test]
