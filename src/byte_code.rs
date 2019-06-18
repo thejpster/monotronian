@@ -63,6 +63,7 @@ pub enum Value<'a> {
     Integer(i32),
     Float(f32),
     Boolean(bool),
+    Char(u8),
     Nil,
 }
 
@@ -195,6 +196,27 @@ impl<'a> Program<'a> {
                 let result = u32::from_le_bytes(buf);
                 let float_result = f32::from_bits(result);
                 Ok((Value::Float(float_result), offset + 4))
+            }
+            Instruction::LiteralChar => {
+                let result = self.code[offset];
+                Ok((Value::Char(result), offset + 1))
+            }
+            Instruction::Call => {
+                // Get function name
+                let function_name = self.read_string(offset);
+                offset += 1 + function_name.len();
+                // Get number of arguments (up to 8)
+                let num_args = self.code[offset] as usize;
+                offset += 1;
+                // Call function with those arguments
+                let mut args: [Value; 8] = [Value::Nil; 8];
+                for arg_no in 0..num_args {
+                    let (arg, new_offset) = self.execute_instructions(offset)?;
+                    args[arg_no] = arg;
+                    offset = new_offset;
+                }
+                let result = self.run_function(function_name, &args[0..num_args])?;
+                Ok((result, offset))
             }
             Instruction::LiteralNil => Ok((Value::Nil, offset)),
             _ => unimplemented!(),
@@ -370,13 +392,16 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn run_function(&mut self, name: &[u8]) -> Result<Value, Error> {
+    pub fn run_function(&self, name: &[u8], _args: &[Value]) -> Result<Value, Error> {
         let mut offset = self.find_function(name)?;
         loop {
             match self.read_instruction(offset) {
                 Ok(Instruction::Return) => {
                     let (value, _new_offset) = self.execute_instructions(offset)?;
                     return Ok(value);
+                }
+                Ok(Instruction::EndFn) => {
+                    return Ok(Value::Nil);
                 }
                 Ok(_i) => {
                     let (_value, new_offset) = self.execute_instructions(offset)?;
@@ -409,11 +434,58 @@ mod test {
             b'r',
             b'g',
             b's',
-            Instruction::Return as u8,
-            Instruction::LiteralNil as u8,
+            Instruction::EndFn as u8,
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Nil));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Nil));
+    }
+
+    #[test]
+    fn function_call() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Return as u8,
+            Instruction::Add as u8,
+            Instruction::Call as u8,
+            3,
+            b'f',
+            b'o',
+            b'o',
+            0,
+            Instruction::Call as u8,
+            3,
+            b'f',
+            b'o',
+            b'o',
+            0,
+            Instruction::EndFn as u8,
+            Instruction::Fn as u8,
+            0x03,
+            b'f',
+            b'o',
+            b'o',
+            0x00,
+            Instruction::Return as u8,
+            Instruction::LiteralInteger as u8,
+            1,
+            2,
+            3,
+            4,
+            Instruction::EndFn as u8,
+        ];
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(0x08060402)));
     }
 
     #[test]
@@ -438,8 +510,8 @@ mod test {
             0x00,
             0x00,
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Integer(0)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(0)));
     }
 
     #[test]
@@ -470,8 +542,8 @@ mod test {
             0x00,
             0x00,
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Integer(3)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(3)));
     }
 
     #[test]
@@ -507,8 +579,8 @@ mod test {
             arg2_bytes[2],
             arg2_bytes[3],
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Float(result)));
     }
 
     #[test]
@@ -544,8 +616,8 @@ mod test {
             arg2_bytes[2],
             arg2_bytes[3],
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Float(result)));
     }
 
     #[test]
@@ -581,8 +653,8 @@ mod test {
             arg2_bytes[2],
             arg2_bytes[3],
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Float(result)));
     }
 
     #[test]
@@ -618,8 +690,8 @@ mod test {
             arg2_bytes[2],
             arg2_bytes[3],
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Float(result)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Float(result)));
     }
 
     #[test]
@@ -644,8 +716,8 @@ mod test {
             0x00,
             0x00,
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"main"), Ok(Value::Integer(1)));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(1)));
     }
 
     #[test]
@@ -666,8 +738,8 @@ mod test {
             Instruction::Return as u8,
             Instruction::LiteralNil as u8,
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"mainX"), Err(Error::FunctionNotFound));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"mainX", &[]), Err(Error::FunctionNotFound));
     }
 
     #[test]
@@ -701,7 +773,7 @@ mod test {
             Instruction::Return as u8,
             Instruction::LiteralNil as u8,
         ];
-        let mut p = Program::new(&byte_code);
-        assert_eq!(p.run_function(b"foo"), Ok(Value::Nil));
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"foo", &[]), Ok(Value::Nil));
     }
 }
