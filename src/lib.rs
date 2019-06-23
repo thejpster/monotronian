@@ -2,7 +2,7 @@
 //!
 //! A BASIC-alike language for Monotron. See README.md.
 
-#![cfg_attr(not(test), no_std)]
+extern crate alloc;
 
 #[macro_use]
 extern crate nom;
@@ -157,7 +157,7 @@ pub(crate) fn display_ascii_string(
 ) -> ::core::fmt::Result {
     for ch in buf.iter() {
         match *ch {
-            0x20...0x7f => write!(fmt, "{}", *ch as char).unwrap(),
+            0x20..=0x7f => write!(fmt, "{}", *ch as char).unwrap(),
             b'\n' => write!(fmt, "\\n").unwrap(),
             _ => write!(fmt, "?").unwrap(),
         }

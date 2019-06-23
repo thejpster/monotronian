@@ -7,6 +7,8 @@
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
+use alloc::vec::Vec;
+
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, FromPrimitive, PartialEq, Eq)]
 enum Instruction {
@@ -37,6 +39,7 @@ enum Instruction {
     LiteralChar,
     LiteralFloat,
     LiteralInteger,
+    LiteralIntegerHex,
     LiteralNil,
     LiteralString,
     LOr,
@@ -53,12 +56,22 @@ enum Instruction {
     While,
 }
 
-pub struct Program<'a> {
-    code: &'a [u8],
+struct Variable<'a> {
+    name: Vec<u8>,
+    value: Value<'a>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Program<'a> {
+    code: &'a [u8],
+    /// TODO: Give each variable a scope, so they can be deleted when we
+    /// return from a function. Also, create a variable which is our current
+    /// scope level.
+    variables: core::cell::RefCell<Vec<Variable<'a>>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value<'a> {
+    OwnedString(Vec<u8>),
     StringLiteral(&'a [u8]),
     Integer(i32),
     Float(f32),
@@ -73,11 +86,15 @@ pub enum Error {
     UnrecognisedToken,
     InvalidOperandType,
     OutOfBounds(usize),
+    UndefinedVariable,
 }
 
 impl<'a> Program<'a> {
     pub fn new(code: &'a [u8]) -> Program {
-        Program { code }
+        Program {
+            code,
+            variables: core::cell::RefCell::new(Vec::new()),
+        }
     }
 
     fn read_instruction(&self, offset: usize) -> Result<Instruction, Error> {
@@ -90,7 +107,33 @@ impl<'a> Program<'a> {
         .ok_or(Error::UnrecognisedToken)
     }
 
-    fn execute_instructions(&self, mut offset: usize) -> Result<(Value, usize), Error> {
+    fn get_value(&self, name: &[u8]) -> Option<Value> {
+        let vars = self.variables.try_borrow().unwrap();
+        for item in vars.iter() {
+            if item.name == name {
+                return Some(item.value.clone());
+            }
+        }
+        None
+    }
+
+    fn set_value(&self, name: &[u8], value: Value<'a>) {
+        let mut vars = self.variables.try_borrow_mut().unwrap();
+        for item in vars.iter_mut() {
+            if item.name == name {
+                item.value = value;
+                return;
+            }
+        }
+        let mut name_vec = Vec::new();
+        name_vec.extend_from_slice(name);
+        vars.push(Variable {
+            name: name_vec,
+            value,
+        });
+    }
+
+    fn execute_instructions(&'a self, mut offset: usize) -> Result<(Value<'a>, usize), Error> {
         let i = self.read_instruction(offset)?;
         offset += 1;
         match i {
@@ -155,6 +198,7 @@ impl<'a> Program<'a> {
                 }
             }
             Instruction::Divide => {
+                // Divide the first numeric argument by the second
                 let (lhs, offset) = self.execute_instructions(offset)?;
                 let (rhs, offset) = self.execute_instructions(offset)?;
                 match (lhs, rhs) {
@@ -174,9 +218,12 @@ impl<'a> Program<'a> {
                     _ => Err(Error::InvalidOperandType),
                 }
             }
-            Instruction::Return => self.execute_instructions(offset),
-            Instruction::LiteralInteger => {
-                // Parse as little-endian 32-bit integer
+            Instruction::Return => {
+                // Evaluate the expression and stop executing the current function
+                self.execute_instructions(offset)
+            }
+            Instruction::LiteralInteger | Instruction::LiteralIntegerHex => {
+                // A literal little-endian 32-bit integer
                 let buf = [
                     self.code[offset],
                     self.code[offset + 1],
@@ -187,6 +234,7 @@ impl<'a> Program<'a> {
                 Ok((Value::Integer(result), offset + 4))
             }
             Instruction::LiteralFloat => {
+                // A literal 32-bit floating point number
                 let buf = [
                     self.code[offset],
                     self.code[offset + 1],
@@ -198,10 +246,14 @@ impl<'a> Program<'a> {
                 Ok((Value::Float(float_result), offset + 4))
             }
             Instruction::LiteralChar => {
+                // A literal 8-bit character
                 let result = self.code[offset];
                 Ok((Value::Char(result), offset + 1))
             }
             Instruction::Call => {
+                // Call a named function, with some arguments. Returns the
+                // result of that function.
+                //
                 // Get function name
                 let function_name = self.read_string(offset);
                 offset += 1 + function_name.len();
@@ -209,17 +261,305 @@ impl<'a> Program<'a> {
                 let num_args = self.code[offset] as usize;
                 offset += 1;
                 // Call function with those arguments
-                let mut args: [Value; 8] = [Value::Nil; 8];
-                for arg_no in 0..num_args {
+                let mut args: Vec<Value> = Vec::new();
+                for _i in 0..num_args {
                     let (arg, new_offset) = self.execute_instructions(offset)?;
-                    args[arg_no] = arg;
+                    args.push(arg);
                     offset = new_offset;
                 }
-                let result = self.run_function(function_name, &args[0..num_args])?;
+                let result = self.run_function(function_name, &args)?;
                 Ok((result, offset))
             }
-            Instruction::LiteralNil => Ok((Value::Nil, offset)),
-            _ => unimplemented!(),
+            Instruction::LiteralNil => {
+                // A literal nil value
+                Ok((Value::Nil, offset))
+            }
+            Instruction::Assign => {
+                // Set the named variable to the given value
+                let name = self.read_string(offset);
+                offset += name.len() + 1;
+                let (value, offset) = self.execute_instructions(offset)?;
+                self.set_value(name, value);
+                Ok((Value::Nil, offset))
+            }
+            Instruction::BAnd => {
+                // Perform a bitwise AND on the two integer arguments
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    // (int, int) -> int
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x & y), offset)),
+                    // Can't bitwise AND any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Boolean => {
+                // Convert the given argument to a boolean value.
+                let (value, offset) = self.execute_instructions(offset)?;
+                Ok((
+                    Value::Boolean(match value {
+                        Value::Integer(n) => n != 0,
+                        Value::StringLiteral(s) => !s.is_empty(),
+                        Value::OwnedString(s) => !s.is_empty(),
+                        Value::Float(_f) => {
+                            return Err(Error::InvalidOperandType);
+                        }
+                        Value::Boolean(b) => b,
+                        Value::Char(c) => c != 0,
+                        Value::Nil => false,
+                    }),
+                    offset,
+                ))
+            }
+            Instruction::BOr => {
+                // jump to the end of the current while loop or for loop
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    // (int, int) -> int
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x | y), offset)),
+                    // Can't bitwise AND any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Break => {
+                // jump to the end of the current while loop or for loop
+                unimplemented!();
+            }
+            Instruction::Different => {
+                // boolean true if these two arguments are not the same
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::StringLiteral(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x != y), offset))
+                    }
+                    (Value::OwnedString(x), Value::OwnedString(y)) => {
+                        Ok((Value::Boolean(x != y), offset))
+                    }
+                    (Value::OwnedString(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x != y), offset))
+                    }
+                    (Value::StringLiteral(x), Value::OwnedString(y)) => {
+                        Ok((Value::Boolean(y != x), offset))
+                    }
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Boolean(x != y), offset)),
+                    (Value::Float(x), Value::Float(y)) => {
+                        Ok((Value::Boolean((x - y).abs() < core::f32::EPSILON), offset))
+                    }
+                    (Value::Boolean(x), Value::Boolean(y)) => Ok((Value::Boolean(x != y), offset)),
+                    (Value::Char(x), Value::Char(y)) => Ok((Value::Boolean(x != y), offset)),
+                    (Value::Nil, Value::Nil) => Ok((Value::Boolean(false), offset)),
+                    // anything else is different
+                    _ => Ok((Value::Boolean(true), offset)),
+                }
+            }
+            Instruction::ElIf => {
+                // Evaluate the conditional. If false, jump to the else block,
+                // or the matching endif, or the next elif (whichever comes first).
+                unimplemented!();
+            }
+            Instruction::Else => {
+                // Marks the final part of an if statement
+                unimplemented!();
+            }
+            Instruction::EndFn => {
+                // Ends a function
+                unimplemented!();
+            }
+            Instruction::EndIf => {
+                // Ends an if statement block
+                unimplemented!();
+            }
+            Instruction::EndWhile => {
+                // Ends a while loop
+                unimplemented!();
+            }
+            Instruction::Equals => {
+                // Are these two arguments equal to each other
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::StringLiteral(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x == y), offset))
+                    }
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Boolean(x == y), offset)),
+                    (Value::Float(x), Value::Float(y)) => {
+                        Ok((Value::Boolean((x - y).abs() < core::f32::EPSILON), offset))
+                    }
+                    (Value::Boolean(x), Value::Boolean(y)) => Ok((Value::Boolean(x == y), offset)),
+                    (Value::Char(x), Value::Char(y)) => Ok((Value::Boolean(x == y), offset)),
+                    (Value::Nil, Value::Nil) => Ok((Value::Boolean(true), offset)),
+                    // anything else is different
+                    _ => Ok((Value::Boolean(false), offset)),
+                }
+            }
+            Instruction::False => {
+                // Literal boolean non-truth value
+                Ok((Value::Boolean(false), offset))
+            }
+            Instruction::Fn => {
+                // Starts a function
+                unimplemented!();
+            }
+            Instruction::GetVal => {
+                // Get a value with the given name
+                let name = self.read_string(offset);
+                offset += name.len() + 1;
+                match self.get_value(name) {
+                    Some(v) => Ok((v, offset)),
+                    None => Err(Error::UndefinedVariable),
+                }
+            }
+            Instruction::GetValIdx => {
+                // Get a value from the named array at the specified index
+                unimplemented!();
+            }
+            Instruction::Gt => {
+                // Boolean result - is the first argument greater than the second argument
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::StringLiteral(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x > y), offset))
+                    }
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Boolean(x > y), offset)),
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Boolean(x > y), offset)),
+                    (Value::Char(x), Value::Char(y)) => Ok((Value::Boolean(x > y), offset)),
+                    // Can't compare any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Gte => {
+                // Boolean result - is the first argument greater than or equal to the second argument
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::StringLiteral(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x >= y), offset))
+                    }
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Boolean(x >= y), offset)),
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Boolean(x >= y), offset)),
+                    (Value::Char(x), Value::Char(y)) => Ok((Value::Boolean(x >= y), offset)),
+                    // Can't compare any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::If => {
+                // Evaluate the conditional. If false, jump to the else block,
+                // or the matching endif, or the next elif (whichever comes first).
+                unimplemented!();
+            }
+            Instruction::LAnd => {
+                // Logical AND of the two boolean arguments
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    // (bool, bool) -> bool
+                    (Value::Boolean(x), Value::Boolean(y)) => Ok((Value::Boolean(x && y), offset)),
+                    // Can't logical AND any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::LiteralArray => {
+                // Don't have support for array types yet - need Vec<Value>
+                unimplemented!();
+            }
+            Instruction::LiteralString => {
+                // A string literal follows.
+                //
+                // Get string length (up to 255)
+                let name = self.read_string(offset);
+                offset += name.len() + 1;
+                let result = Value::StringLiteral(name);
+                Ok((result, offset))
+            }
+            Instruction::LOr => {
+                // Logical OR of the two boolean arguments
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    // (bool, bool) -> bool
+                    (Value::Boolean(x), Value::Boolean(y)) => Ok((Value::Boolean(x || y), offset)),
+                    // Can't logical AND any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Lt => {
+                // Boolean result - is the first argument less than the second argument
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::StringLiteral(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x < y), offset))
+                    }
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Boolean(x < y), offset)),
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Boolean(x < y), offset)),
+                    (Value::Char(x), Value::Char(y)) => Ok((Value::Boolean(x < y), offset)),
+                    // Can't compare any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Lte => {
+                // Boolean result - is the first argument less than or equal to the second argument
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::StringLiteral(x), Value::StringLiteral(y)) => {
+                        Ok((Value::Boolean(x <= y), offset))
+                    }
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Boolean(x <= y), offset)),
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Boolean(x <= y), offset)),
+                    (Value::Char(x), Value::Char(y)) => Ok((Value::Boolean(x <= y), offset)),
+                    // Can't compare any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Modulo => {
+                // Perform modulo arithmetic on the two numeric arguments,
+                // which must be of the same type.
+                let (lhs, offset) = self.execute_instructions(offset)?;
+                let (rhs, offset) = self.execute_instructions(offset)?;
+                match (lhs, rhs) {
+                    (Value::Integer(x), Value::Integer(y)) => Ok((Value::Integer(x % y), offset)),
+                    (Value::Float(x), Value::Float(y)) => Ok((Value::Float(x % y), offset)),
+                    // Can't compare any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Negate => {
+                // Negate the numeric argument
+                let (operand, offset) = self.execute_instructions(offset)?;
+                match operand {
+                    Value::Integer(x) => Ok((Value::Integer(-x), offset)),
+                    Value::Float(x) => Ok((Value::Float(-x), offset)),
+                    // Can't negate any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::Next => {
+                // Check the conditional of the most recent for loop and
+                // either go back, or continue
+                unimplemented!();
+            }
+            Instruction::Not => {
+                // Invert the boolean argument
+                let (operand, offset) = self.execute_instructions(offset)?;
+                match operand {
+                    Value::Boolean(x) => Ok((Value::Boolean(!x), offset)),
+                    // Can't negate any other sort of things
+                    _ => Err(Error::InvalidOperandType),
+                }
+            }
+            Instruction::True => {
+                // A literal boolean True value
+                Ok((Value::Boolean(true), offset))
+            }
+            Instruction::While => {
+                // Evaluate the conditional and, if true, run the loop. Else
+                // jump to the matching endwhile.
+                unimplemented!();
+            }
         }
     }
 
@@ -327,7 +667,7 @@ impl<'a> Program<'a> {
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
             // An i32 literal integer
-            Instruction::LiteralInteger => {
+            Instruction::LiteralInteger | Instruction::LiteralIntegerHex => {
                 arg_offset += 4;
             }
             // A literal integer
@@ -392,7 +732,7 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn run_function(&self, name: &[u8], _args: &[Value]) -> Result<Value, Error> {
+    pub fn run_function(&'a self, name: &[u8], _args: &[Value]) -> Result<Value<'a>, Error> {
         let mut offset = self.find_function(name)?;
         loop {
             match self.read_instruction(offset) {
@@ -489,6 +829,94 @@ mod test {
     }
 
     #[test]
+    fn make_variable() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Assign as u8,
+            0x03,
+            b'f',
+            b'o',
+            b'o',
+            Instruction::LiteralInteger as u8,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::Return as u8,
+            Instruction::GetVal as u8,
+            0x03,
+            b'f',
+            b'o',
+            b'o',
+        ];
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(0)));
+    }
+
+    #[test]
+    fn make_two_variables() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Assign as u8,
+            0x03,
+            b'f',
+            b'o',
+            b'o',
+            Instruction::LiteralInteger as u8,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::Assign as u8,
+            0x03,
+            b'b',
+            b'a',
+            b'r',
+            Instruction::LiteralInteger as u8,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::Return as u8,
+            Instruction::Add as u8,
+            Instruction::GetVal as u8,
+            0x03,
+            b'b',
+            b'a',
+            b'r',
+            Instruction::GetVal as u8,
+            0x03,
+            b'f',
+            b'o',
+            b'o',
+        ];
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(3)));
+    }
+
+    #[test]
     fn return_integer_zero() {
         let byte_code = [
             Instruction::Fn as u8,
@@ -536,7 +964,7 @@ mod test {
             0x00,
             0x00,
             0x00,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralIntegerHex as u8,
             0x02,
             0x00,
             0x00,

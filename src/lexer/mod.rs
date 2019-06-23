@@ -157,7 +157,7 @@ fn parse_reserved(word: CompleteByteSlice) -> Option<Token> {
         first = i.next();
     }
     match first {
-        Some(b'0'...b'9') => None,
+        Some(b'0'..=b'9') => None,
         _ => {
             // Identifiers can't have these special characters
             if word.0.iter().any(|x| *x == b'$' || *x == b'#') {
@@ -403,11 +403,19 @@ fn convert_float_digits(input: CompleteByteSlice) -> Result<f64, Error> {
             _ => {
                 if seen_dot {
                     frac /= 10.0;
-                    let digit = f64::from((*ch as char).to_digit(10).ok_or_else(|| Error::BadNumber(input.0))?);
+                    let digit = f64::from(
+                        (*ch as char)
+                            .to_digit(10)
+                            .ok_or_else(|| Error::BadNumber(input.0))?,
+                    );
                     result += digit * frac;
                 } else {
                     iresult *= i64::from(10);
-                    iresult += i64::from((*ch as char).to_digit(10).ok_or_else(|| Error::BadNumber(input.0))?);
+                    iresult += i64::from(
+                        (*ch as char)
+                            .to_digit(10)
+                            .ok_or_else(|| Error::BadNumber(input.0))?,
+                    );
                 }
             }
         }
@@ -436,9 +444,11 @@ fn convert_digits(input: CompleteByteSlice, radix: u32) -> Result<i64, Error> {
             b'.' => return Err(Error::BadNumber(input.0)),
             _ => {
                 result *= i64::from(radix);
-                result += i64::from((*ch as char)
-                    .to_digit(radix)
-                    .ok_or_else(|| Error::BadNumber(input.0))?);
+                result += i64::from(
+                    (*ch as char)
+                        .to_digit(radix)
+                        .ok_or_else(|| Error::BadNumber(input.0))?,
+                );
             }
         }
         valid = true;
