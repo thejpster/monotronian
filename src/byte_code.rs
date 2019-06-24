@@ -38,8 +38,14 @@ enum Instruction {
     LiteralArray,
     LiteralChar,
     LiteralFloat,
-    LiteralInteger,
-    LiteralIntegerHex,
+    LiteralInteger8,
+    LiteralIntegerHex8,
+    LiteralInteger16,
+    LiteralIntegerHex16,
+    LiteralInteger24,
+    LiteralIntegerHex24,
+    LiteralInteger32,
+    LiteralIntegerHex32,
     LiteralNil,
     LiteralString,
     LOr,
@@ -223,7 +229,33 @@ impl<'a> Program<'a> {
                 // Evaluate the expression and stop executing the current function
                 self.execute_instructions(offset)
             }
-            Instruction::LiteralInteger | Instruction::LiteralIntegerHex => {
+            Instruction::LiteralInteger8 | Instruction::LiteralIntegerHex8 => {
+                // A literal little-endian 8-bit integer
+                Ok((Value::Integer(self.code[offset] as i32), offset + 1))
+            }
+            Instruction::LiteralInteger16 | Instruction::LiteralIntegerHex16 => {
+                // A literal little-endian 16-bit integer
+                let buf = [self.code[offset], self.code[offset + 1]];
+                let result = i16::from_le_bytes(buf);
+                Ok((Value::Integer(result as i32), offset + 2))
+            }
+            Instruction::LiteralInteger24 | Instruction::LiteralIntegerHex24 => {
+                // A literal little-endian 24-bit integer
+                let buf = [
+                    self.code[offset],
+                    self.code[offset + 1],
+                    self.code[offset + 2],
+                    // Do sign extension
+                    if (self.code[offset + 2] & 0x80) != 0 {
+                        0xFF
+                    } else {
+                        0x00
+                    },
+                ];
+                let result = i32::from_le_bytes(buf);
+                Ok((Value::Integer(result), offset + 3))
+            }
+            Instruction::LiteralInteger32 | Instruction::LiteralIntegerHex32 => {
                 // A literal little-endian 32-bit integer
                 let buf = [
                     self.code[offset],
@@ -703,8 +735,20 @@ impl<'a> Program<'a> {
                 // An expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
+            // An i8 literal integer
+            Instruction::LiteralInteger8 | Instruction::LiteralIntegerHex8 => {
+                arg_offset += 1;
+            }
+            // An i16 literal integer
+            Instruction::LiteralInteger16 | Instruction::LiteralIntegerHex16 => {
+                arg_offset += 2;
+            }
+            // An i24 literal integer
+            Instruction::LiteralInteger24 | Instruction::LiteralIntegerHex24 => {
+                arg_offset += 3;
+            }
             // An i32 literal integer
-            Instruction::LiteralInteger | Instruction::LiteralIntegerHex => {
+            Instruction::LiteralInteger32 | Instruction::LiteralIntegerHex32 => {
                 arg_offset += 4;
             }
             // A literal integer
@@ -855,7 +899,7 @@ mod test {
             b'o',
             0x00,
             Instruction::Return as u8,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             1,
             2,
             3,
@@ -886,19 +930,19 @@ mod test {
             b'r',
             b'e',
             b's',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0x00,
             0x00,
             0x00,
             0x00,
             Instruction::If as u8,
             Instruction::Equals as u8,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0xCC,
             0x00,
             0x00,
             0x00,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0xCC,
             0x00,
             0x00,
@@ -908,7 +952,7 @@ mod test {
             b'r',
             b'e',
             b's',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0x01,
             0x00,
             0x00,
@@ -946,19 +990,19 @@ mod test {
             b'r',
             b'e',
             b's',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0x00,
             0x00,
             0x00,
             0x00,
             Instruction::If as u8,
             Instruction::Equals as u8,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0xCC,
             0x00,
             0x00,
             0x01,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             0xCC,
             0x00,
             0x00,
@@ -968,11 +1012,8 @@ mod test {
             b'r',
             b'e',
             b's',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger8 as u8,
             0x01,
-            0x00,
-            0x00,
-            0x00,
             Instruction::EndIf as u8,
             Instruction::Assign as u8,
             0x03,
@@ -985,11 +1026,8 @@ mod test {
             b'r',
             b'e',
             b's',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger8 as u8,
             0x01,
-            0x00,
-            0x00,
-            0x00,
             Instruction::Return as u8,
             Instruction::GetVal as u8,
             0x03,
@@ -1022,10 +1060,7 @@ mod test {
             b'f',
             b'o',
             b'o',
-            Instruction::LiteralInteger as u8,
-            0x00,
-            0x00,
-            0x00,
+            Instruction::LiteralInteger8 as u8,
             0x00,
             Instruction::Return as u8,
             Instruction::GetVal as u8,
@@ -1058,21 +1093,16 @@ mod test {
             b'f',
             b'o',
             b'o',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger16 as u8,
             0x02,
-            0x00,
-            0x00,
             0x00,
             Instruction::Assign as u8,
             0x03,
             b'b',
             b'a',
             b'r',
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger8 as u8,
             0x01,
-            0x00,
-            0x00,
-            0x00,
             Instruction::Return as u8,
             Instruction::Add as u8,
             Instruction::GetVal as u8,
@@ -1106,8 +1136,7 @@ mod test {
             b'g',
             b's',
             Instruction::Return as u8,
-            Instruction::LiteralInteger as u8,
-            0x00,
+            Instruction::LiteralInteger24 as u8,
             0x00,
             0x00,
             0x00,
@@ -1133,16 +1162,10 @@ mod test {
             b's',
             Instruction::Return as u8,
             Instruction::Add as u8,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger8 as u8,
             0x01,
-            0x00,
-            0x00,
-            0x00,
-            Instruction::LiteralIntegerHex as u8,
+            Instruction::LiteralIntegerHex8 as u8,
             0x02,
-            0x00,
-            0x00,
-            0x00,
         ];
         let p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(3)));
@@ -1244,7 +1267,7 @@ mod test {
             b's',
             Instruction::Return as u8,
             Instruction::Times as u8,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             arg1_bytes[0],
             arg1_bytes[1],
             arg1_bytes[2],
@@ -1286,7 +1309,7 @@ mod test {
             arg1_bytes[1],
             arg1_bytes[2],
             arg1_bytes[3],
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger32 as u8,
             arg2_bytes[0],
             arg2_bytes[1],
             arg2_bytes[2],
@@ -1312,11 +1335,8 @@ mod test {
             b'g',
             b's',
             Instruction::Return as u8,
-            Instruction::LiteralInteger as u8,
+            Instruction::LiteralInteger8 as u8,
             0x01,
-            0x00,
-            0x00,
-            0x00,
         ];
         let p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(1)));
