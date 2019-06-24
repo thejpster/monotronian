@@ -87,6 +87,7 @@ pub enum Error {
     InvalidOperandType,
     OutOfBounds(usize),
     UndefinedVariable,
+    UnexpectedEndOfFunction,
 }
 
 impl<'a> Program<'a> {
@@ -368,8 +369,8 @@ impl<'a> Program<'a> {
                 unimplemented!();
             }
             Instruction::EndIf => {
-                // Ends an if statement block
-                unimplemented!();
+                // Ends an if statement block. It's basically a no-op.
+                Ok((Value::Nil, offset))
             }
             Instruction::EndWhile => {
                 // Ends a while loop
@@ -448,7 +449,43 @@ impl<'a> Program<'a> {
             Instruction::If => {
                 // Evaluate the conditional. If false, jump to the else block,
                 // or the matching endif, or the next elif (whichever comes first).
-                unimplemented!();
+                let (conditional, new_offset) = self.execute_instructions(offset)?;
+                offset = new_offset;
+                if let Value::Boolean(x) = conditional {
+                    if x {
+                        // Execute the code immediately after
+                        Ok((Value::Nil, offset))
+                    } else {
+                        // increment offset until we find and endif
+                        let mut depth = 0;
+                        loop {
+                            let i = self.read_instruction(offset)?;
+                            offset += 1;
+                            match i {
+                                Instruction::If => {
+                                    depth = depth + 1;
+                                    offset = self.decoded_skip_instruction(i, offset)?;
+                                }
+                                Instruction::EndIf if depth == 0 => {
+                                    offset = self.decoded_skip_instruction(i, offset)?;
+                                    return Ok((Value::Nil, offset));
+                                }
+                                Instruction::EndIf if depth > 0 => {
+                                    depth = depth - 1;
+                                    offset = self.decoded_skip_instruction(i, offset)?;
+                                }
+                                Instruction::EndFn => {
+                                    return Err(Error::UnexpectedEndOfFunction);
+                                }
+                                _ => {
+                                    offset = self.decoded_skip_instruction(i, offset)?;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Err(Error::InvalidOperandType)
+                }
             }
             Instruction::LAnd => {
                 // Logical AND of the two boolean arguments
@@ -744,6 +781,7 @@ impl<'a> Program<'a> {
                     return Ok(Value::Nil);
                 }
                 Ok(_i) => {
+                    println!("Executing at {} ({:02x})", offset, self.code[offset]);
                     let (_value, new_offset) = self.execute_instructions(offset)?;
                     offset = new_offset;
                 }
@@ -826,6 +864,142 @@ mod test {
         ];
         let p = Program::new(&byte_code);
         assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(0x08060402)));
+    }
+
+    #[test]
+    fn if_statement() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Assign as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::LiteralInteger as u8,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::If as u8,
+            Instruction::Equals as u8,
+            Instruction::LiteralInteger as u8,
+            0xCC,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::LiteralInteger as u8,
+            0xCC,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::Assign as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::LiteralInteger as u8,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::EndIf as u8,
+            Instruction::Return as u8,
+            Instruction::GetVal as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::EndFn as u8,
+        ];
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(1)));
+    }
+
+    #[test]
+    fn if_statement_negative() {
+        let byte_code = [
+            Instruction::Fn as u8,
+            0x04,
+            b'm',
+            b'a',
+            b'i',
+            b'n',
+            0x01,
+            0x04,
+            b'a',
+            b'r',
+            b'g',
+            b's',
+            Instruction::Assign as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::LiteralInteger as u8,
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::If as u8,
+            Instruction::Equals as u8,
+            Instruction::LiteralInteger as u8,
+            0xCC,
+            0x00,
+            0x00,
+            0x01,
+            Instruction::LiteralInteger as u8,
+            0xCC,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::Assign as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::LiteralInteger as u8,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::EndIf as u8,
+            Instruction::Assign as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::Add as u8,
+            Instruction::GetVal as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::LiteralInteger as u8,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            Instruction::Return as u8,
+            Instruction::GetVal as u8,
+            0x03,
+            b'r',
+            b'e',
+            b's',
+            Instruction::EndFn as u8,
+        ];
+        let p = Program::new(&byte_code);
+        assert_eq!(p.run_function(b"main", &[]), Ok(Value::Integer(1)));
     }
 
     #[test]
