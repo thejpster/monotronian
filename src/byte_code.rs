@@ -12,54 +12,117 @@ use alloc::vec::Vec;
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, FromPrimitive, PartialEq, Eq)]
 enum Instruction {
-    Add,
+    // Variables
+    /// Takes a string for a variable name, and assigns the following expression to it
     Assign,
-    BAnd,
-    Boolean,
-    BOr,
-    Break,
-    Call,
-    Different,
-    Divide,
-    ElIf,
-    Else,
-    EndFn,
-    EndIf,
-    EndWhile,
-    Equals,
-    False,
-    Fn,
+    /// Load a variable
     GetVal,
+    /// Load a value from an array variable
     GetValIdx,
-    Gt,
-    Gte,
-    If,
-    LAnd,
-    LiteralArray,
-    LiteralChar,
-    LiteralFloat,
-    LiteralInteger8,
-    LiteralIntegerHex8,
-    LiteralInteger16,
-    LiteralIntegerHex16,
-    LiteralInteger24,
-    LiteralIntegerHex24,
-    LiteralInteger32,
-    LiteralIntegerHex32,
-    LiteralNil,
-    LiteralString,
-    LOr,
-    Lt,
-    Lte,
-    Modulo,
+
+    // Unary operations
+    /// Converts the following expression to a boolean
+    Boolean,
+    /// Converts the following expression to a char
+    Char,
+    /// Converts the following expression to an integer
+    Integer,
+    /// Converts the following expression to a float
+    Float,
+    /// Multiply the following expression by -1
     Negate,
-    Next,
+    /// Invert the following boolean expression
     Not,
+
+    // Control flow
+    /// Exits from a loop
+    Break,
+    /// Calls a function: the number of arguments follow, then an expression for each argument
+    Call,
+    /// Jump to the next elsif/else/endif if the following expression is not true
+    If,
+    /// Marks an alternative block in an if/elsif/else
+    ElIf,
+    /// Marks the final block in an if/elsif/else
+    Else,
+    /// Marks the end of an if/elsif/else
+    EndIf,
+    /// Marks the end of a function. Is an implicit "return nil"
+    EndFn,
+    /// Marks the start of a function. Has a string name, and an array of parameter name strings
+    Fn,
+    /// Exit the function early, with a value
     Return,
-    Subtract,
-    Times,
-    True,
+    /// Starts a block that is repeated while the following expression is true
     While,
+    /// Marks the end of a while loop
+    EndWhile,
+
+    // Binary arithmetic operations
+    /// Performs arithmetic subtraction with the next two expressions
+    Subtract,
+    /// Multiplies the next two expressions
+    Times,
+    /// Produces the result of dividing the next expression by the one after
+    Divide,
+    /// Adds the next two expressions together
+    Add,
+    /// Performs a bitwise AND of the following two integer expressions
+    BAnd,
+    /// Performs a bitwise OR of the following two integer expressions
+    BOr,
+    /// Calculates the next expression modulo the one after
+    Modulo,
+
+    // Binary operations which produce booleans
+    /// Are the next two values equal to each other
+    Equals,
+    /// Returns true of the next two expressions have different values, or false if they are the same
+    Different,
+    /// Greater than
+    Gt,
+    /// Greater than or equal
+    Gte,
+    /// Less than
+    Lt,
+    /// Less than or equal to
+    Lte,
+    /// Logical AND of the following two boolean expressions
+    LAnd,
+    /// Logical OR of the following two boolean expressions
+    LOr,
+
+    // Literal values
+    /// A literal boolean false
+    False,
+    /// A literal array - followed by the number of items and an expression for each
+    LiteralArray,
+    /// A literal 8 bit character
+    LiteralChar,
+    /// A literal floating point number represented in decimal
+    LiteralFloat,
+    /// An 8-bit signed integer that was expressed by the user in decimal
+    LiteralInteger8,
+    /// An 8-bit signed integer that was expressed by the user in hex
+    LiteralIntegerHex8,
+    /// A 16-bit signed integer that was expressed by the user in decimal
+    LiteralInteger16,
+    /// A 16-bit signed integer that was expressed by the user in hex
+    LiteralIntegerHex16,
+    /// A 24-bit signed integer that was expressed by the user in decimal
+    LiteralInteger24,
+    /// A 24-bit signed integer that was expressed by the user in hex
+    LiteralIntegerHex24,
+    /// A 32-bit signed integer that was expressed by the user in decimal
+    LiteralInteger32,
+    /// A 32-bit signed integer that was expressed by the user in hex
+    LiteralIntegerHex32,
+    /// A literal nil value
+    LiteralNil,
+    /// A string literal
+    LiteralString,
+    // A literal boolean true
+    True,
 }
 
 struct Variable<'a> {
@@ -344,6 +407,67 @@ impl<'a> Program<'a> {
                     offset,
                 ))
             }
+            Instruction::Integer => {
+                // Convert the given argument to an integer value.
+                let (value, offset) = self.execute_instructions(offset)?;
+                Ok((
+                    match value {
+                        Value::Integer(n) => Value::Integer(n),
+                        Value::StringLiteral(s) => core::str::from_utf8(s)
+                            .map_err(|_| ())
+                            .and_then(|s| s.parse::<i32>().map_err(|_| ()))
+                            .and_then(|x| Ok(Value::Integer(x)))
+                            .unwrap_or(Value::Nil),
+                        Value::OwnedString(s) => core::str::from_utf8(&s)
+                            .map_err(|_| ())
+                            .and_then(|s| s.parse::<i32>().map_err(|_| ()))
+                            .and_then(|x| Ok(Value::Integer(x)))
+                            .unwrap_or(Value::Nil),
+                        Value::Float(f) => Value::Integer(f as i32),
+                        Value::Boolean(b) => Value::Integer(if b { 1 } else { 0 }),
+                        Value::Char(c) => Value::Integer(c as i32),
+                        Value::Nil => Value::Integer(0),
+                    },
+                    offset,
+                ))
+            }
+            Instruction::Char => {
+                // Convert the given argument to a char value.
+                let (value, offset) = self.execute_instructions(offset)?;
+                match value {
+                    Value::Integer(n) => Ok((Value::Char(n as u8), offset)),
+                    Value::StringLiteral(_s) => Err(Error::InvalidOperandType),
+                    Value::OwnedString(_s) => Err(Error::InvalidOperandType),
+                    Value::Float(f) => Ok((Value::Char(f as u8), offset)),
+                    Value::Boolean(_b) => Err(Error::InvalidOperandType),
+                    Value::Char(c) => Ok((Value::Char(c), offset)),
+                    Value::Nil => Ok((Value::Char(0), offset)),
+                }
+            }
+            Instruction::Float => {
+                // Convert the given argument to a float value.
+                let (value, offset) = self.execute_instructions(offset)?;
+                Ok((
+                    match value {
+                        Value::Integer(n) => Value::Float(n as f32),
+                        Value::StringLiteral(s) => core::str::from_utf8(s)
+                            .map_err(|_| ())
+                            .and_then(|s| s.parse::<f32>().map_err(|_| ()))
+                            .and_then(|x| Ok(Value::Float(x)))
+                            .unwrap_or(Value::Nil),
+                        Value::OwnedString(s) => core::str::from_utf8(&s)
+                            .map_err(|_| ())
+                            .and_then(|s| s.parse::<f32>().map_err(|_| ()))
+                            .and_then(|x| Ok(Value::Float(x)))
+                            .unwrap_or(Value::Nil),
+                        Value::Float(f) => Value::Float(f),
+                        Value::Boolean(b) => Value::Float(if b { 1.0 } else { 0.0 }),
+                        Value::Char(c) => Value::Float(c as f32),
+                        Value::Nil => Value::Float(0.0),
+                    },
+                    offset,
+                ))
+            }
             Instruction::BOr => {
                 // jump to the end of the current while loop or for loop
                 let (lhs, offset) = self.execute_instructions(offset)?;
@@ -606,11 +730,6 @@ impl<'a> Program<'a> {
                     _ => Err(Error::InvalidOperandType),
                 }
             }
-            Instruction::Next => {
-                // Check the conditional of the most recent for loop and
-                // either go back, or continue
-                unimplemented!();
-            }
             Instruction::Not => {
                 // Invert the boolean argument
                 let (operand, offset) = self.execute_instructions(offset)?;
@@ -678,7 +797,11 @@ impl<'a> Program<'a> {
                 // an expression
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
-            Instruction::Boolean => {
+            // Has 1 argument
+            Instruction::Boolean
+            | Instruction::Float
+            | Instruction::Char
+            | Instruction::Integer => {
                 arg_offset = self.skip_instruction(arg_offset)?;
             }
             Instruction::Break
@@ -689,8 +812,7 @@ impl<'a> Program<'a> {
             | Instruction::EndWhile
             | Instruction::False
             | Instruction::LiteralNil
-            | Instruction::True
-            | Instruction::Next => {
+            | Instruction::True => {
                 // No args
             }
             // Call a function
